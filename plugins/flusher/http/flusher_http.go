@@ -86,9 +86,12 @@ type FlusherHTTP struct {
 
 	queue         chan interface{}
 	counter       sync.WaitGroup
+	flushedGroups pipeline.CounterMetric
+	flushedEvents pipeline.CounterMetric
 	droppedGroups pipeline.CounterMetric
 	droppedEvents pipeline.CounterMetric
 	retryCounts   pipeline.CounterMetric
+	flushFailure  pipeline.CounterMetric
 	flushLatency  pipeline.CounterMetric
 }
 
@@ -151,15 +154,13 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	f.fillRequestContentType()
 
 	metricLabels := f.buildLabels()
-	f.droppedGroups = helper.NewCounterMetric("http_flusher_dropped_groups", metricLabels...)
-	f.droppedEvents = helper.NewCounterMetric("http_flusher_dropped_events", metricLabels...)
-	f.retryCounts = helper.NewCounterMetric("http_flusher_retry_counts", metricLabels...)
-	f.flushLatency = helper.NewAverageMetric("http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
-
-	context.RegisterCounterMetric(f.droppedGroups)
-	context.RegisterCounterMetric(f.droppedEvents)
-	context.RegisterCounterMetric(f.retryCounts)
-	context.RegisterCounterMetric(f.flushLatency)
+	f.flushedGroups = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flushed_groups", metricLabels...)
+	f.flushedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flushed_events", metricLabels...)
+	f.droppedGroups = helper.NewCounterMetricAndRegister(f.context, "http_flusher_dropped_groups", metricLabels...)
+	f.droppedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_dropped_events", metricLabels...)
+	f.retryCounts = helper.NewCounterMetricAndRegister(f.context, "http_flusher_retry_counts", metricLabels...)
+	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_counts", metricLabels...)
+	f.flushLatency = helper.NewAverageMetricAndRegister(f.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
 	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized")
 	return nil
@@ -330,6 +331,8 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 				return nil
 			}
 		}
+		f.flushedGroups.Add(1)
+		f.flushedEvents.Add(int64(len(v.Events)))
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFieldsV2(v, f.varKeys)
 	default:
 		return fmt.Errorf("unsupport data type")
@@ -345,6 +348,7 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 			body, values := data, varValues[idx]
 			err = f.flushWithRetry(body, values)
 			if err != nil {
+				f.flushFailure.Add(1)
 				logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, data dropped, error", err)
 			}
 		}
@@ -352,6 +356,7 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 	case []byte:
 		err = f.flushWithRetry(rows, nil)
 		if err != nil {
+			f.flushFailure.Add(1)
 			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, error", err)
 		}
 		return err
