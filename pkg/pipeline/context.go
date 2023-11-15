@@ -39,7 +39,7 @@ type Context interface {
 	RegisterStringMetric(metric StringMetric)
 	RegisterLatencyMetric(metric LatencyMetric)
 
-	MetricSerializeToPB(log *protocol.Log)
+	MetricSerializeToPB(log []*protocol.Log)
 
 	SaveCheckPoint(key string, value []byte) error
 	GetCheckPoint(key string) (value []byte, exist bool)

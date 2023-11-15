@@ -101,34 +101,46 @@ func (p *EmptyContext) RegisterLatencyMetric(metric pipeline.LatencyMetric) {
 	p.LatencyMetrics[metric.Name()] = metric
 }
 
-func (p *EmptyContext) MetricSerializeToPB(log *protocol.Log) {
-	if log == nil {
+func (p *EmptyContext) MetricSerializeToPB(logs []*protocol.Log) {
+	if logs == nil {
 		return
 	}
-	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "project", Value: p.GetProject()})
-	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "logstore", Value: p.GetLogstore()})
-	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "config", Value: p.GetConfigName()})
-	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "plugins", Value: p.pluginNames})
 	contextMutex.Lock()
 	defer contextMutex.Unlock()
 	if p.CounterMetrics != nil {
 		for _, value := range p.CounterMetrics {
+			log := p.newMetricProtocol()
 			value.Serialize(log)
 			value.Clear(0)
+			logs = append(logs, log)
 		}
 	}
 	if p.StringMetrics != nil {
 		for _, value := range p.StringMetrics {
+			log := p.newMetricProtocol()
 			value.Serialize(log)
 			value.Set("")
+			logs = append(logs, log)
 		}
 	}
 	if p.LatencyMetrics != nil {
 		for _, value := range p.LatencyMetrics {
+			log := p.newMetricProtocol()
 			value.Serialize(log)
 			value.Clear()
+			logs = append(logs, log)
 		}
 	}
+}
+
+func (p *EmptyContext) newMetricProtocol() *protocol.Log {
+	log := &protocol.Log{}
+	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "project", Value: p.GetProject()})
+	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "config_name", Value: p.GetConfigName()})
+	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "plugins", Value: p.pluginNames})
+	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "category", Value: p.GetProject()})
+	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "source_ip", Value: util.GetIPAddress()})
+	return log
 }
 
 func (p *EmptyContext) SaveCheckPoint(key string, value []byte) error {
