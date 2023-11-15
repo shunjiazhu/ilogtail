@@ -774,8 +774,8 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 			So(len(flusher.queue), ShouldEqual, 1)
 			err = flusher.convertAndFlush(<-flusher.queue)
 			So(err, ShouldBeNil)
-			logs := []*protocol.Log{}
-			flusher.context.MetricSerializeToPB(logs)
+			logGroup := &protocol.LogGroup{}
+			flusher.context.MetricSerializeToPB(logGroup)
 		})
 	})
 }

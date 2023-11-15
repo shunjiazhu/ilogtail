@@ -35,10 +35,10 @@ func (r *InputStatistics) Description() string {
 
 func (r *InputStatistics) Collect(collector pipeline.Collector) error {
 	for _, config := range LogtailConfig {
-		logGroup := make([]*protocol.Log, 0)
+		logGroup := &protocol.LogGroup{}
 		config.Context.MetricSerializeToPB(logGroup)
-		if len(logGroup) > 0 && StatisticsConfig != nil {
-			for _, log := range logGroup {
+		if len(logGroup.Logs) > 0 && StatisticsConfig != nil {
+			for _, log := range logGroup.Logs {
 				StatisticsConfig.PluginRunner.ReceiveRawLog(&pipeline.LogWithContext{Log: log})
 				logger.Debug(r.context.GetRuntimeContext(), "statistics", *log)
 			}
