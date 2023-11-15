@@ -124,8 +124,8 @@ func (p *ContextImp) RegisterLatencyMetric(metric pipeline.LatencyMetric) {
 	p.LatencyMetrics[metric.Name()] = metric
 }
 
-func (p *ContextImp) MetricSerializeToPB(logs []*protocol.Log) {
-	if logs == nil {
+func (p *ContextImp) MetricSerializeToPB(logGroup *protocol.LogGroup) {
+	if logGroup == nil {
 		return
 	}
 	contextMutex.Lock()
@@ -135,7 +135,7 @@ func (p *ContextImp) MetricSerializeToPB(logs []*protocol.Log) {
 			log := p.newMetricProtocol()
 			value.Serialize(log)
 			value.Clear(0)
-			logs = append(logs, log)
+			logGroup.Logs = append(logGroup.Logs, log)
 		}
 	}
 	if p.StringMetrics != nil {
@@ -143,7 +143,7 @@ func (p *ContextImp) MetricSerializeToPB(logs []*protocol.Log) {
 			log := p.newMetricProtocol()
 			value.Serialize(log)
 			value.Set("")
-			logs = append(logs, log)
+			logGroup.Logs = append(logGroup.Logs, log)
 		}
 	}
 	if p.LatencyMetrics != nil {
@@ -151,7 +151,7 @@ func (p *ContextImp) MetricSerializeToPB(logs []*protocol.Log) {
 			log := p.newMetricProtocol()
 			value.Serialize(log)
 			value.Clear()
-			logs = append(logs, log)
+			logGroup.Logs = append(logGroup.Logs, log)
 		}
 	}
 }
