@@ -98,35 +98,46 @@ func (p *LocalContext) RegisterLatencyMetric(metric pipeline.LatencyMetric) {
 	p.LatencyMetrics[metric.Name()] = metric
 }
 
-func (p *LocalContext) MetricSerializeToPB(log *protocol.Log) {
-	if log == nil {
+func (p *LocalContext) MetricSerializeToPB(logs []*protocol.Log) {
+	if logs == nil {
 		return
 	}
+	contextMutex.Lock()
+	defer contextMutex.Unlock()
+	if p.CounterMetrics != nil {
+		for _, value := range p.CounterMetrics {
+			log := p.newMetricProtocol()
+			value.Serialize(log)
+			value.Clear(0)
+			logs = append(logs, log)
+		}
+	}
+	if p.StringMetrics != nil {
+		for _, value := range p.StringMetrics {
+			log := p.newMetricProtocol()
+			value.Serialize(log)
+			value.Set("")
+			logs = append(logs, log)
+		}
+	}
+	if p.LatencyMetrics != nil {
+		for _, value := range p.LatencyMetrics {
+			log := p.newMetricProtocol()
+			value.Serialize(log)
+			value.Clear()
+			logs = append(logs, log)
+		}
+	}
+}
+
+func (p *LocalContext) newMetricProtocol() *protocol.Log {
+	log := &protocol.Log{}
 	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "project", Value: p.GetProject()})
 	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "config_name", Value: p.GetConfigName()})
 	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "plugins", Value: p.pluginNames})
 	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "category", Value: p.GetProject()})
 	log.Contents = append(log.Contents, &protocol.Log_Content{Key: "source_ip", Value: util.GetIPAddress()})
-	contextMutex.Lock()
-	defer contextMutex.Unlock()
-	if p.CounterMetrics != nil {
-		for _, value := range p.CounterMetrics {
-			value.Serialize(log)
-			value.Clear(0)
-		}
-	}
-	if p.StringMetrics != nil {
-		for _, value := range p.StringMetrics {
-			value.Serialize(log)
-			value.Set("")
-		}
-	}
-	if p.LatencyMetrics != nil {
-		for _, value := range p.LatencyMetrics {
-			value.Serialize(log)
-			value.Clear()
-		}
-	}
+	return log
 }
 
 func (p *LocalContext) SaveCheckPoint(key string, value []byte) error {
