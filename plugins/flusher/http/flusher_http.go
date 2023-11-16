@@ -84,15 +84,15 @@ type FlusherHTTP struct {
 	client      *http.Client
 	interceptor extensions.FlushInterceptor
 
-	queue         chan interface{}
-	counter       sync.WaitGroup
-	flushedGroups pipeline.CounterMetric
-	flushedEvents pipeline.CounterMetric
-	droppedGroups pipeline.CounterMetric
-	droppedEvents pipeline.CounterMetric
-	retryCounts   pipeline.CounterMetric
-	flushFailure  pipeline.CounterMetric
-	flushLatency  pipeline.CounterMetric
+	queue   chan interface{}
+	counter sync.WaitGroup
+
+	interceptedEvents pipeline.CounterMetric
+	flushedEvents     pipeline.CounterMetric
+	droppedEvents     pipeline.CounterMetric
+	retryCount        pipeline.CounterMetric
+	flushFailure      pipeline.CounterMetric
+	flushLatency      pipeline.CounterMetric
 }
 
 func (f *FlusherHTTP) Description() string {
@@ -154,12 +154,11 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	f.fillRequestContentType()
 
 	metricLabels := f.buildLabels()
-	f.flushedGroups = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flushed_groups", metricLabels...)
+	f.interceptedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_intercepted_events", metricLabels...)
 	f.flushedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flushed_events", metricLabels...)
-	f.droppedGroups = helper.NewCounterMetricAndRegister(f.context, "http_flusher_dropped_groups", metricLabels...)
 	f.droppedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_dropped_events", metricLabels...)
-	f.retryCounts = helper.NewCounterMetricAndRegister(f.context, "http_flusher_retry_counts", metricLabels...)
-	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_counts", metricLabels...)
+	f.retryCount = helper.NewCounterMetricAndRegister(f.context, "http_flusher_retry_count", metricLabels...)
+	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_count", metricLabels...)
 	f.flushLatency = helper.NewAverageMetricAndRegister(f.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
 	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized")
@@ -175,10 +174,16 @@ func (f *FlusherHTTP) Flush(projectName string, logstoreName string, configName 
 
 func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx pipeline.PipelineContext) error {
 	for _, groupEvents := range groupEventsArray {
+		if groupEvents == nil {
+			continue
+		}
+
 		if !f.AsyncIntercept && f.interceptor != nil {
+			eventCount := len(groupEvents.Events)
 			groupEvents = f.interceptor.Intercept(groupEvents)
 			// skip groupEvents that is nil or empty.
 			if groupEvents == nil || len(groupEvents.Events) == 0 {
+				f.interceptedEvents.Add(int64(eventCount))
 				continue
 			}
 		}
@@ -287,7 +292,6 @@ func (f *FlusherHTTP) addTask(log interface{}) {
 // handleDroppedEvent handles a dropped event and reports metrics.
 func (f *FlusherHTTP) handleDroppedEvent(log interface{}) {
 	f.counter.Done()
-	f.droppedGroups.Add(1)
 
 	// Update the dropped events counter based on the type of the log.
 	switch v := log.(type) {
@@ -326,12 +330,13 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFields(v, f.varKeys)
 	case *models.PipelineGroupEvents:
 		if f.AsyncIntercept && f.interceptor != nil {
+			eventCount := len(v.Events)
 			v = f.interceptor.Intercept(v)
 			if v == nil || len(v.Events) == 0 {
+				f.interceptedEvents.Add(int64(eventCount))
 				return nil
 			}
 		}
-		f.flushedGroups.Add(1)
 		f.flushedEvents.Add(int64(len(v.Events)))
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFieldsV2(v, f.varKeys)
 	default:
@@ -382,7 +387,7 @@ func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) e
 		}
 		err = e
 		<-time.After(f.getNextRetryDelay(i))
-		f.retryCounts.Add(1)
+		f.retryCount.Add(1)
 	}
 	converter.PutPooledByteBuf(&data)
 	return err
