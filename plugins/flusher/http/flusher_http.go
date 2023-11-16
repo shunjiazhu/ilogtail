@@ -375,9 +375,6 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) error {
 	var err error
 	start := time.Now()
-	defer func() {
-		f.flushLatency.Add(time.Since(start).Nanoseconds())
-	}()
 
 	for i := 0; i <= f.Retry.MaxRetryTimes; i++ {
 		ok, retryable, e := f.flush(data, varValues)
@@ -390,6 +387,7 @@ func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) e
 		f.retryCount.Add(1)
 	}
 	converter.PutPooledByteBuf(&data)
+	f.flushLatency.Add(time.Since(start).Nanoseconds())
 	return err
 }
 
