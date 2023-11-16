@@ -155,7 +155,7 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 
 	metricLabels := f.buildLabels()
 	f.interceptedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_intercepted_events", metricLabels...)
-	f.flushedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flushed_events", metricLabels...)
+	f.flushedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_matched_events", metricLabels...)
 	f.droppedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_dropped_events", metricLabels...)
 	f.retryCount = helper.NewCounterMetricAndRegister(f.context, "http_flusher_retry_count", metricLabels...)
 	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_count", metricLabels...)
