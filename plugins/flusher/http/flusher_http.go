@@ -87,12 +87,12 @@ type FlusherHTTP struct {
 	queue   chan interface{}
 	counter sync.WaitGroup
 
-	interceptedEvents pipeline.CounterMetric
-	flushedEvents     pipeline.CounterMetric
-	droppedEvents     pipeline.CounterMetric
-	retryCount        pipeline.CounterMetric
-	flushFailure      pipeline.CounterMetric
-	flushLatency      pipeline.CounterMetric
+	matchedEvents   pipeline.CounterMetric
+	unmatchedEvents pipeline.CounterMetric
+	droppedEvents   pipeline.CounterMetric
+	retryCount      pipeline.CounterMetric
+	flushFailure    pipeline.CounterMetric
+	flushLatency    pipeline.CounterMetric
 }
 
 func (f *FlusherHTTP) Description() string {
@@ -154,8 +154,8 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	f.fillRequestContentType()
 
 	metricLabels := f.buildLabels()
-	f.interceptedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_intercepted_events", metricLabels...)
-	f.flushedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_matched_events", metricLabels...)
+	f.matchedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_matched_events", metricLabels...)
+	f.unmatchedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_intercepted_events", metricLabels...)
 	f.droppedEvents = helper.NewCounterMetricAndRegister(f.context, "http_flusher_dropped_events", metricLabels...)
 	f.retryCount = helper.NewCounterMetricAndRegister(f.context, "http_flusher_retry_count", metricLabels...)
 	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_count", metricLabels...)
@@ -181,7 +181,7 @@ func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx
 		if !f.AsyncIntercept && f.interceptor != nil {
 			originCount := int64(len(groupEvents.Events))
 			groupEvents = f.interceptor.Intercept(groupEvents)
-			f.interceptedEvents.Add(getInterceptedEventCount(originCount, groupEvents))
+			f.unmatchedEvents.Add(getInterceptedEventCount(originCount, groupEvents))
 			// skip groupEvents that is nil or empty.
 			if groupEvents == nil || len(groupEvents.Events) == 0 {
 				continue
@@ -332,12 +332,12 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		if f.AsyncIntercept && f.interceptor != nil {
 			originCount := int64(len(v.Events))
 			v = f.interceptor.Intercept(v)
-			f.interceptedEvents.Add(getInterceptedEventCount(originCount, v))
+			f.unmatchedEvents.Add(getInterceptedEventCount(originCount, v))
 			if v == nil || len(v.Events) == 0 {
 				return nil
 			}
 		}
-		f.flushedEvents.Add(int64(len(v.Events)))
+		f.matchedEvents.Add(int64(len(v.Events)))
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFieldsV2(v, f.varKeys)
 	default:
 		return fmt.Errorf("unsupport data type")

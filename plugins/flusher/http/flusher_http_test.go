@@ -687,8 +687,8 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 		}
 
 		metricLabels := flusher.buildLabels()
-		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
-		flusher.flushedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_matched_events", metricLabels...)
+		flusher.unmatchedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_unmatched_events", metricLabels...)
+		flusher.matchedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_matched_events", metricLabels...)
 		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
 		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
 		flusher.flushFailure = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flush_failure_count", metricLabels...)
@@ -726,8 +726,8 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 		}
 
 		metricLabels := flusher.buildLabels()
-		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
-		flusher.flushedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_matched_events", metricLabels...)
+		flusher.unmatchedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_unmatched_events", metricLabels...)
+		flusher.matchedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_matched_events", metricLabels...)
 		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
 		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
 		flusher.flushFailure = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flush_failure_count", metricLabels...)
@@ -771,8 +771,8 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 		}
 
 		metricLabels := flusher.buildLabels()
-		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
-		flusher.flushedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_matched_events", metricLabels...)
+		flusher.unmatchedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_unmatched_events", metricLabels...)
+		flusher.matchedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_matched_events", metricLabels...)
 		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
 		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
 		flusher.flushFailure = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flush_failure_count", metricLabels...)
