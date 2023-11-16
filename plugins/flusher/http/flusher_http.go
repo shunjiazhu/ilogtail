@@ -179,11 +179,11 @@ func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx
 		}
 
 		if !f.AsyncIntercept && f.interceptor != nil {
-			eventCount := len(groupEvents.Events)
+			originCount := int64(len(groupEvents.Events))
 			groupEvents = f.interceptor.Intercept(groupEvents)
+			f.interceptedEvents.Add(getInterceptedEventCount(originCount, groupEvents))
 			// skip groupEvents that is nil or empty.
 			if groupEvents == nil || len(groupEvents.Events) == 0 {
-				f.interceptedEvents.Add(int64(eventCount))
 				continue
 			}
 		}
@@ -330,10 +330,10 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFields(v, f.varKeys)
 	case *models.PipelineGroupEvents:
 		if f.AsyncIntercept && f.interceptor != nil {
-			eventCount := len(v.Events)
+			originCount := int64(len(v.Events))
 			v = f.interceptor.Intercept(v)
+			f.interceptedEvents.Add(getInterceptedEventCount(originCount, v))
 			if v == nil || len(v.Events) == 0 {
-				f.interceptedEvents.Add(int64(eventCount))
 				return nil
 			}
 		}
@@ -542,6 +542,13 @@ func (f *FlusherHTTP) fillRequestContentType() {
 		contentType = defaultContentType
 	}
 	f.Headers[contentTypeHeader] = contentType
+}
+
+func getInterceptedEventCount(origin int64, group *models.PipelineGroupEvents) int64 {
+	if group == nil {
+		return origin
+	}
+	return origin - int64(len(group.Events))
 }
 
 func init() {
