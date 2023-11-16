@@ -753,10 +753,10 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 		}
 
 		metricLabels := flusher.buildLabels()
-		flusher.droppedGroups = helper.NewCounterMetric("http_flusher_dropped_groups", metricLabels...)
-		flusher.droppedEvents = helper.NewCounterMetric("http_flusher_dropped_events", metricLabels...)
-		flusher.retryCounts = helper.NewCounterMetric("http_flusher_retry_counts", metricLabels...)
-		flusher.flushLatency = helper.NewAverageMetric("http_flusher_flush_latency_ns", metricLabels...)
+		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
+		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
+		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(flusher.context, "http_flusher_flush_latency_ns", metricLabels...)
 
 		Convey("should discard events when queue is full", func() {
 			groupEvents := models.PipelineGroupEvents{
@@ -776,6 +776,7 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 			So(err, ShouldBeNil)
 			logGroup := &protocol.LogGroup{}
 			flusher.context.MetricSerializeToPB(logGroup)
+			assert.Greater(t, len(logGroup.Logs), 0)
 		})
 	})
 }
