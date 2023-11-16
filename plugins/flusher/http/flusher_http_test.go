@@ -678,12 +678,21 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 				Protocol: converter.ProtocolInfluxdb,
 				Encoding: converter.EncodingCustom,
 			},
+			context:        mock.NewEmptyContext("p", "l", "c"),
 			interceptor:    mockIntercepter,
 			AsyncIntercept: false,
 			Timeout:        defaultTimeout,
 			Concurrency:    1,
 			queue:          make(chan interface{}, 10),
 		}
+
+		metricLabels := flusher.buildLabels()
+		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
+		flusher.flushedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flushed_events", metricLabels...)
+		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
+		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
+		flusher.flushFailure = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flush_failure_count", metricLabels...)
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(flusher.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
 		Convey("should discard all events", func() {
 			groupEvents := models.PipelineGroupEvents{
@@ -709,11 +718,20 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 				Encoding: converter.EncodingCustom,
 			},
 			interceptor:    mockIntercepter,
+			context:        mock.NewEmptyContext("p", "l", "c"),
 			AsyncIntercept: true,
 			Timeout:        defaultTimeout,
 			Concurrency:    1,
 			queue:          make(chan interface{}, 10),
 		}
+
+		metricLabels := flusher.buildLabels()
+		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
+		flusher.flushedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flushed_events", metricLabels...)
+		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
+		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
+		flusher.flushFailure = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flush_failure_count", metricLabels...)
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(flusher.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
 		Convey("should discard all events", func() {
 			groupEvents := models.PipelineGroupEvents{
@@ -754,9 +772,11 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 
 		metricLabels := flusher.buildLabels()
 		flusher.interceptedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_intercepted_events", metricLabels...)
+		flusher.flushedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flushed_events", metricLabels...)
 		flusher.droppedEvents = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_dropped_events", metricLabels...)
 		flusher.retryCount = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_retry_count", metricLabels...)
-		flusher.flushLatency = helper.NewAverageMetricAndRegister(flusher.context, "http_flusher_flush_latency_ns", metricLabels...)
+		flusher.flushFailure = helper.NewCounterMetricAndRegister(flusher.context, "http_flusher_flush_failure_count", metricLabels...)
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(flusher.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
 		Convey("should discard events when queue is full", func() {
 			groupEvents := models.PipelineGroupEvents{
