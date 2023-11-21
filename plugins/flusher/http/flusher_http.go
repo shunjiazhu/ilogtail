@@ -23,8 +23,10 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/alibaba/ilogtail/pkg/fmtstr"
@@ -52,6 +54,7 @@ var contentTypeMaps = map[string]string{
 }
 
 var (
+	flusherID       = int64(0) // http flusher id that starts from 0
 	sensitiveLabels = []string{"u", "user", "username", "p", "password", "passwd", "pwd"}
 )
 
@@ -485,13 +488,15 @@ func (f *FlusherHTTP) flush(data []byte, varValues map[string]string) (ok, retry
 }
 
 func (f *FlusherHTTP) buildLabels() []*protocol.Log_Content {
-	labels := make([]*protocol.Log_Content, 0, len(f.Headers)+1)
+	id := atomic.AddInt64(&flusherID, 1) - 1
+	labels := make([]*protocol.Log_Content, 0, len(f.Headers)+2)
 	labels = append(labels, &protocol.Log_Content{Key: "RemoteURL", Value: f.RemoteURL})
 	for k, v := range f.Query {
 		if !isSensitiveKey(k) {
 			labels = append(labels, &protocol.Log_Content{Key: k, Value: v})
 		}
 	}
+	labels = append(labels, &protocol.Log_Content{Key: "flusher_http_id", Value: strconv.FormatInt(id, 10)})
 	return labels
 }
 
