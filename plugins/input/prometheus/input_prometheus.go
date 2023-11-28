@@ -139,7 +139,7 @@ func (p *ServiceStaticPrometheus) Start(c pipeline.Collector) error {
 	p.scraper.Init(p.slsPushData)
 	p.running = true
 	if p.kubeMeta.isWorkingOnClusterMode() {
-		p.StartKubeReloadScraper()
+		p.StartKubeReloadScraper(p.slsPushData)
 	}
 	<-p.shutdown
 	p.scraper.Stop()
@@ -154,7 +154,7 @@ func (p *ServiceStaticPrometheus) StartService(ctx pipeline.PipelineContext) err
 	p.scraper.Init(p.groupEventPushData)
 	p.running = true
 	if p.kubeMeta.isWorkingOnClusterMode() {
-		p.StartKubeReloadScraper()
+		p.StartKubeReloadScraper(p.groupEventPushData)
 	}
 	<-p.shutdown
 	p.scraper.Stop()
@@ -171,7 +171,7 @@ func (p *ServiceStaticPrometheus) Stop() error {
 	return nil
 }
 
-func (p *ServiceStaticPrometheus) StartKubeReloadScraper() {
+func (p *ServiceStaticPrometheus) StartKubeReloadScraper(pushData func(at *auth.Token, wr *prompbmarshal.WriteRequest)) {
 	go func() {
 		ticker := time.NewTicker(time.Second * 10)
 		for {
@@ -190,7 +190,7 @@ func (p *ServiceStaticPrometheus) StartKubeReloadScraper() {
 				}
 				promscrape.ConfigMemberInfo(int(p.kubeMeta.replicas), strconv.Itoa(p.kubeMeta.currentNum))
 				p.scraper.Stop()
-				p.scraper.Init(p.slsPushData)
+				p.scraper.Init(pushData)
 				p.lock.Unlock()
 				logger.Info(p.context.GetRuntimeContext(), "reload prometheus scraper done")
 			}
