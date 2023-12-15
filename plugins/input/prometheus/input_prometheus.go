@@ -243,7 +243,7 @@ func getNameAndTagsFrom(labels []prompbmarshal.Label) (string, models.Tags) {
 			metricName = strings.Clone(label.Value)
 			continue
 		}
-		tags[label.Name] = strings.Clone(label.Value)
+		tags[strings.Clone(label.Name)] = strings.Clone(label.Value)
 	}
 	return metricName, models.NewMetadataWithMap(tags)
 }
