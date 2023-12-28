@@ -227,7 +227,7 @@ func appendToPipeline(ctx pipeline.PipelineContext, wr *prompbmarshal.WriteReque
 				metricName,
 				models.MetricTypeGauge,
 				tags,
-				sample.Timestamp,
+				time.Unix(sample.Timestamp, 0).UnixNano(),
 				sample.Value)
 			metricList = append(metricList, metric)
 		}
