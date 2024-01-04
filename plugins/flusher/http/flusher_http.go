@@ -385,12 +385,17 @@ func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) e
 		}
 
 		ok, retryable, e := f.flush(data, varValues)
-
+		isEoF := errors.Is(e, io.EOF)
 		//  retry if the error is io.EOF.
-		if ok || (!retryable && !errors.Is(e, io.EOF)) || !f.Retry.Enable {
+		if ok || (!retryable && !isEoF) || !f.Retry.Enable {
 			err = e
 			break
 		}
+
+		if isEoF {
+			logger.Debugf(f.context.GetRuntimeContext(), "http flusher sent requests and got EOF, will retry")
+		}
+
 		err = e
 		<-time.After(f.getNextRetryDelay(i))
 	}

@@ -839,7 +839,7 @@ func TestHttpFlusherHandleEOF(t *testing.T) {
 			actualRequests = append(actualRequests, string(body))
 			return httpmock.NewStringResponse(200, "ok"), &url.Error{
 				Op:  "POST",
-				URL: "http://test.com/write?db=mydb",
+				URL: "http://testeof.com/write?db=mydb",
 				Err: io.EOF,
 			}
 		})
