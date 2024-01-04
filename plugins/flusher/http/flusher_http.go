@@ -380,14 +380,19 @@ func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) e
 	start := time.Now()
 
 	for i := 0; i <= f.Retry.MaxRetryTimes; i++ {
+		if i > 0 { // first flush is not retry
+			f.retryCount.Add(1)
+		}
+
 		ok, retryable, e := f.flush(data, varValues)
-		if ok || !retryable || !f.Retry.Enable {
+
+		//  retry if the error is io.EOF.
+		if ok || (!retryable && !errors.Is(e, io.EOF)) || !f.Retry.Enable {
 			err = e
 			break
 		}
 		err = e
 		<-time.After(f.getNextRetryDelay(i))
-		f.retryCount.Add(1)
 	}
 	converter.PutPooledByteBuf(&data)
 	f.flushLatency.Add(time.Since(start).Nanoseconds())
