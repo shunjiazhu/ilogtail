@@ -55,7 +55,7 @@ var contentTypeMaps = map[string]string{
 
 var (
 	flusherID       = int64(0) // http flusher id that starts from 0
-	sensitiveLabels = []string{"u", "user", "username", "p", "password", "passwd", "pwd"}
+	sensitiveLabels = []string{"u", "user", "username", "p", "password", "passwd", "pwd", "Authorization"}
 )
 
 type retryConfig struct {
@@ -350,6 +350,8 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher converter log fail, error", err)
 		return err
 	}
+
+	insensitiveHeaders, insensitiveQuery := f.getInsensitiveMap(f.Headers), f.getInsensitiveMap(f.Query)
 	switch rows := logs.(type) {
 	case [][]byte:
 		for idx, data := range rows {
@@ -357,7 +359,8 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 			err = f.flushWithRetry(body, values)
 			if err != nil {
 				f.flushFailure.Add(1)
-				logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, data dropped, error", err)
+				logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, data dropped, error", err,
+					"remote url", f.RemoteURL, "headers", insensitiveHeaders, "query", insensitiveQuery)
 			}
 		}
 		return nil
@@ -365,7 +368,8 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		err = f.flushWithRetry(rows, nil)
 		if err != nil {
 			f.flushFailure.Add(1)
-			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, error", err)
+			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, error", err,
+				"remote url", f.RemoteURL, "headers", insensitiveHeaders, "query", insensitiveQuery)
 		}
 		return err
 	default:
@@ -508,6 +512,16 @@ func (f *FlusherHTTP) buildLabels() []*protocol.Log_Content {
 	}
 	labels = append(labels, &protocol.Log_Content{Key: "flusher_http_id", Value: strconv.FormatInt(id, 10)})
 	return labels
+}
+
+func (f *FlusherHTTP) getInsensitiveMap(info map[string]string) map[string]string {
+	res := make(map[string]string, len(info))
+	for k, v := range info {
+		if !isSensitiveKey(k) {
+			res[k] = v
+		}
+	}
+	return res
 }
 
 func isSensitiveKey(label string) bool {
