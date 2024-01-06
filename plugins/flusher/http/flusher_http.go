@@ -79,6 +79,7 @@ type FlusherHTTP struct {
 	RequestInterceptors    []extensions.ExtensionConfig // custom request interceptor settings
 	QueueCapacity          int                          // capacity of channel
 	DropEventWhenQueueFull bool                         // If true, pipeline events will be dropped when the queue is full
+	DebugMetrics           []string
 
 	varKeys []string
 
@@ -336,6 +337,15 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 			originCount := int64(len(v.Events))
 			v = f.interceptor.Intercept(v)
 			f.unmatchedEvents.Add(getInterceptedEventCount(originCount, v))
+			if len(f.DebugMetrics) > 0 {
+				for _, target := range f.DebugMetrics {
+					for _, m := range v.Events {
+						if m.GetName() == target {
+							logger.Infof(f.context.GetRuntimeContext(), "Found target metric: %s: details: %v", target, m.(*models.Metric).String())
+						}
+					}
+				}
+			}
 			if v == nil || len(v.Events) == 0 {
 				return nil
 			}
