@@ -165,7 +165,7 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_count", metricLabels...)
 	f.flushLatency = helper.NewAverageMetricAndRegister(f.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
-	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized")
+	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized", "timeout", f.Timeout, "debug metrics", f.DebugMetrics)
 	return nil
 }
 
@@ -337,20 +337,20 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 			originCount := int64(len(v.Events))
 			v = f.interceptor.Intercept(v)
 			f.unmatchedEvents.Add(getInterceptedEventCount(originCount, v))
-			if len(f.DebugMetrics) > 0 {
-				for _, target := range f.DebugMetrics {
-					for _, m := range v.Events {
-						if m.GetName() == target {
-							logger.Infof(f.context.GetRuntimeContext(), "Found target metric: %s: details: %v", target, m.(*models.Metric).String())
-						}
-					}
-				}
-			}
 			if v == nil || len(v.Events) == 0 {
 				return nil
 			}
 		}
 		f.matchedEvents.Add(int64(len(v.Events)))
+		if len(f.DebugMetrics) > 0 {
+			for _, target := range f.DebugMetrics {
+				for _, m := range v.Events {
+					if m.GetName() == target {
+						logger.Infof(f.context.GetRuntimeContext(), "http flusher found target metric: %s: details: %v", target, m.(*models.Metric).String())
+					}
+				}
+			}
+		}
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFieldsV2(v, f.varKeys)
 	default:
 		return fmt.Errorf("unsupport data type")
