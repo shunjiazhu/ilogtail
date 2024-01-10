@@ -901,6 +901,79 @@ func TestHttpFlusherHandleEOF(t *testing.T) {
 	})
 }
 
+func TestHandleResetByPeer(t *testing.T) {
+	Convey("Given a http flusher with Convert.Protocol: Raw, Convert.Encoding: Custom, Query: '%{metadata.db}'", t, func() {
+		var actualRequests []string
+		httpmock.Activate()
+		defer httpmock.DeactivateAndReset()
+
+		httpmock.RegisterResponder("POST", "http://testeof.com/write?db=mydb", func(req *http.Request) (*http.Response, error) {
+			body, _ := io.ReadAll(req.Body)
+			actualRequests = append(actualRequests, string(body))
+			return httpmock.NewStringResponse(200, "ok"), &url.Error{
+				Op:  "POST",
+				URL: "http://testeof.com/write?db=mydb",
+				Err: errors.New("connection reset by peer"),
+			}
+		})
+
+		flusher := &FlusherHTTP{
+			RemoteURL: "http://testeof.com/write",
+			Convert: helper.ConvertConfig{
+				Protocol: converter.ProtocolRaw,
+				Encoding: converter.EncodingCustom,
+			},
+			Retry: retryConfig{
+				Enable:        true,
+				MaxRetryTimes: 1,
+				InitialDelay:  time.Second,
+				MaxDelay:      5 * time.Second,
+			},
+			Timeout:     defaultTimeout,
+			Concurrency: 1,
+			Query: map[string]string{
+				"db": "%{metadata.db}",
+			},
+		}
+
+		err := flusher.Init(mock.NewEmptyContext("p", "l", "c"))
+		So(err, ShouldBeNil)
+
+		mockMetric1 := "cpu.load.short,host=server01,region=cn value=0.6 1672321328000000000"
+		mockMetric2 := "cpu.load.short,host=server01,region=cn value=0.2 1672321358000000000"
+		mockMetadata := models.NewMetadataWithKeyValues("db", "mydb")
+
+		Convey("Export a single byte events each GroupEvents with Metadata {db: mydb}", func() {
+			groupEventsArray := []*models.PipelineGroupEvents{
+				{
+					Group:  models.NewGroup(mockMetadata, nil),
+					Events: []models.PipelineEvent{models.ByteArray(mockMetric1)},
+				},
+				{
+					Group:  models.NewGroup(mockMetadata, nil),
+					Events: []models.PipelineEvent{models.ByteArray(mockMetric2)},
+				},
+			}
+			httpmock.ZeroCallCounters()
+			err := flusher.Export(groupEventsArray, nil)
+			So(err, ShouldBeNil)
+			flusher.Stop()
+
+			Convey("each GroupEvents should send in a single request", func() {
+				So(httpmock.GetTotalCallCount(), ShouldEqual, 4)
+			})
+			Convey("request body should be valid", func() {
+				So(actualRequests, ShouldResemble, []string{
+					mockMetric1, mockMetric1, mockMetric2, mockMetric2,
+				})
+			})
+			Convey("retry count is should be 2", func() {
+				So(flusher.retryCount.Get(), ShouldEqual, int64(2))
+			})
+		})
+	})
+}
+
 type mockContext struct {
 	pipeline.Context
 	basicAuth   *basicAuth
@@ -996,5 +1069,12 @@ func TestIsEOF(t *testing.T) {
 		URL: "http://test",
 		Err: io.EOF,
 	}
-	assert.True(t, errors.Is(err, io.EOF))
+	assert.True(t, isErrorEOF(err))
+
+	err = &url.Error{
+		Op:  "Post",
+		URL: "http://test",
+		Err: errors.New("connection reset by peer"),
+	}
+	assert.True(t, isErrorEOF(err))
 }

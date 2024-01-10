@@ -29,6 +29,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/net"
+
 	"github.com/alibaba/ilogtail/pkg/fmtstr"
 	"github.com/alibaba/ilogtail/pkg/helper"
 	"github.com/alibaba/ilogtail/pkg/logger"
@@ -361,7 +363,6 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		return err
 	}
 
-	insensitiveHeaders, insensitiveQuery := f.getInsensitiveMap(f.Headers), f.getInsensitiveMap(f.Query)
 	switch rows := logs.(type) {
 	case [][]byte:
 		for idx, data := range rows {
@@ -370,7 +371,7 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 			if err != nil {
 				f.flushFailure.Add(1)
 				logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, data dropped, error", err,
-					"remote url", f.RemoteURL, "headers", insensitiveHeaders, "query", insensitiveQuery)
+					"remote url", f.RemoteURL, "headers", f.getInsensitiveMap(f.Headers), "query", f.getInsensitiveMap(f.Query))
 			}
 		}
 		return nil
@@ -378,8 +379,8 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		err = f.flushWithRetry(rows, nil)
 		if err != nil {
 			f.flushFailure.Add(1)
-			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, error", err,
-				"remote url", f.RemoteURL, "headers", insensitiveHeaders, "query", insensitiveQuery)
+			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, data dropped, error", err,
+				"remote url", f.RemoteURL, "headers", f.getInsensitiveMap(f.Headers), "query", f.getInsensitiveMap(f.Query))
 		}
 		return err
 	default:
@@ -399,7 +400,7 @@ func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) e
 		}
 
 		ok, retryable, e := f.flush(data, varValues)
-		isEoF := errors.Is(e, io.EOF)
+		isEoF := isErrorEOF(e)
 		//  retry if the error is io.EOF.
 		if ok || (!retryable && !isEoF) || !f.Retry.Enable {
 			err = e
@@ -506,6 +507,7 @@ func (f *FlusherHTTP) flush(data []byte, varValues map[string]string) (ok, retry
 		if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
 			return false, true, fmt.Errorf("err status returned: %v", response.Status)
 		}
+
 		logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher write data returned error, url", req.URL.String(), "status", response.Status, "body", string(body))
 		return false, false, fmt.Errorf("unexpected status returned: %v", response.Status)
 	}
@@ -588,6 +590,10 @@ func getInterceptedEventCount(origin int64, group *models.PipelineGroupEvents) i
 		return origin
 	}
 	return origin - int64(len(group.Events))
+}
+
+func isErrorEOF(err error) bool {
+	return errors.Is(err, io.EOF) || net.IsProbableEOF(err)
 }
 
 func init() {
