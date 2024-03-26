@@ -214,11 +214,11 @@ func (p *ServiceStaticPrometheus) slsPushData(_ *auth.Token, wr *prompbmarshal.W
 
 func (p *ServiceStaticPrometheus) groupEventPushData(_ *auth.Token, wr *prompbmarshal.WriteRequest) {
 	logger.Debug(p.context.GetRuntimeContext(), "append new metrics", wr.Size())
-	appendToPipeline(p.pipelineCtx, wr)
+	appendToPipeline(p.context, p.pipelineCtx, wr)
 	logger.Debug(p.context.GetRuntimeContext(), "append done", wr.Size())
 }
 
-func appendToPipeline(ctx pipeline.PipelineContext, wr *prompbmarshal.WriteRequest) {
+func appendToPipeline(context pipeline.Context, ctx pipeline.PipelineContext, wr *prompbmarshal.WriteRequest) {
 	metricList := make([]models.PipelineEvent, 0, len(wr.Timeseries))
 	for _, ts := range wr.Timeseries {
 		for _, sample := range ts.Samples {
@@ -230,6 +230,7 @@ func appendToPipeline(ctx pipeline.PipelineContext, wr *prompbmarshal.WriteReque
 				time.Unix(0, sample.Timestamp*1_000_000).UnixNano(),
 				sample.Value)
 			metricList = append(metricList, metric)
+			logger.Debugf(context.GetRuntimeContext(), "append a metric: %v", metric.String())
 		}
 	}
 	ctx.Collector().Collect(nil, metricList...)

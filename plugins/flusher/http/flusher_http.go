@@ -16,6 +16,7 @@ package http
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/snappy"
 	"k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/alibaba/ilogtail/pkg/fmtstr"
@@ -44,8 +46,9 @@ import (
 const (
 	defaultTimeout = time.Minute
 
-	contentTypeHeader  = "Content-Type"
-	defaultContentType = "application/octet-stream"
+	contentTypeHeader     = "Content-Type"
+	defaultContentType    = "application/octet-stream"
+	contentEncodingHeader = "Content-Encoding"
 )
 
 var contentTypeMaps = map[string]string{
@@ -53,6 +56,11 @@ var contentTypeMaps = map[string]string{
 	converter.EncodingProtobuf: defaultContentType,
 	converter.EncodingNone:     defaultContentType,
 	converter.EncodingCustom:   defaultContentType,
+}
+
+var supportedCompressionType = map[string]any{
+	"gzip":   nil,
+	"snappy": nil,
 }
 
 var (
@@ -82,6 +90,8 @@ type FlusherHTTP struct {
 	QueueCapacity          int                          // capacity of channel
 	DropEventWhenQueueFull bool                         // If true, pipeline events will be dropped when the queue is full
 	DebugMetrics           []string
+	JitterInSec            int
+	Compression            string
 
 	varKeys []string
 
@@ -90,8 +100,9 @@ type FlusherHTTP struct {
 	client      *http.Client
 	interceptor extensions.FlushInterceptor
 
-	queue   chan interface{}
-	counter sync.WaitGroup
+	broadcaster Broadcaster
+	queue       chan *groupEventsWithTimestamp
+	counter     sync.WaitGroup
 
 	matchedEvents   pipeline.CounterMetric
 	unmatchedEvents pipeline.CounterMetric
@@ -99,6 +110,11 @@ type FlusherHTTP struct {
 	retryCount      pipeline.CounterMetric
 	flushFailure    pipeline.CounterMetric
 	flushLatency    pipeline.CounterMetric
+}
+
+type groupEventsWithTimestamp struct {
+	data        any
+	enqueueTime time.Time
 }
 
 func (f *FlusherHTTP) Description() string {
@@ -151,9 +167,18 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	if f.QueueCapacity <= 0 {
 		f.QueueCapacity = 1024
 	}
-	f.queue = make(chan interface{}, f.QueueCapacity)
+	f.queue = make(chan *groupEventsWithTimestamp, f.QueueCapacity)
+
+	if f.JitterInSec > 0 {
+		f.broadcaster = NewBroadcaster(f.Concurrency)
+	}
+
 	for i := 0; i < f.Concurrency; i++ {
-		go f.runFlushTask()
+		ch := make(chan interface{}, 1)
+		if f.JitterInSec > 0 {
+			f.broadcaster.Register(ch)
+		}
+		go f.runFlushTask(ch)
 	}
 
 	f.buildVarKeys()
@@ -167,18 +192,24 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	f.flushFailure = helper.NewCounterMetricAndRegister(f.context, "http_flusher_flush_failure_count", metricLabels...)
 	f.flushLatency = helper.NewAverageMetricAndRegister(f.context, "http_flusher_flush_latency_ns", metricLabels...) // cannot use latency metric
 
-	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized", "timeout", f.Timeout, "debug metrics", f.DebugMetrics)
+	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized",
+		"timeout", f.Timeout,
+		"jitter", time.Duration(f.JitterInSec)*time.Second,
+		"compression", f.Compression,
+		"debug metrics", f.DebugMetrics)
 	return nil
 }
 
 func (f *FlusherHTTP) Flush(projectName string, logstoreName string, configName string, logGroupList []*protocol.LogGroup) error {
+	now := time.Now()
 	for _, logGroup := range logGroupList {
-		f.addTask(logGroup)
+		f.addTask(logGroup, now)
 	}
 	return nil
 }
 
 func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx pipeline.PipelineContext) error {
+	now := time.Now()
 	for _, groupEvents := range groupEventsArray {
 		if groupEvents == nil {
 			continue
@@ -193,8 +224,7 @@ func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx
 				continue
 			}
 		}
-
-		f.addTask(groupEvents)
+		f.addTask(groupEvents, now)
 	}
 	return nil
 }
@@ -207,6 +237,10 @@ func (f *FlusherHTTP) IsReady(projectName string, logstoreName string, logstoreK
 }
 
 func (f *FlusherHTTP) Stop() error {
+	if f.broadcaster != nil {
+		f.broadcaster.Close() // close the broadcaster to flush all the data in the queue
+	}
+
 	f.counter.Wait()
 	close(f.queue)
 	return nil
@@ -282,16 +316,27 @@ func (f *FlusherHTTP) getConverter() (*converter.Converter, error) {
 	return converter.NewConverterWithSep(f.Convert.Protocol, f.Convert.Encoding, f.Convert.Separator, f.Convert.IgnoreUnExpectedData, nil, nil)
 }
 
-func (f *FlusherHTTP) addTask(log interface{}) {
+func (f *FlusherHTTP) addTask(log interface{}, enqueueTime time.Time) {
 	f.counter.Add(1)
+
+	// if queue is under high pressure, wake up all flushTask.
+	if f.JitterInSec > 0 && len(f.queue) >= cap(f.queue)/2 {
+		f.broadcaster.TrySubmit(nil)
+	}
+
+	evts := &groupEventsWithTimestamp{
+		data:        log,
+		enqueueTime: enqueueTime,
+	}
+
 	if f.DropEventWhenQueueFull {
 		select {
-		case f.queue <- log:
+		case f.queue <- evts:
 		default:
 			f.handleDroppedEvent(log)
 		}
 	} else {
-		f.queue <- log
+		f.queue <- evts
 	}
 }
 
@@ -317,9 +362,19 @@ func (f *FlusherHTTP) countDownTask() {
 	f.counter.Done()
 }
 
-func (f *FlusherHTTP) runFlushTask() {
-	for data := range f.queue {
-		err := f.convertAndFlush(data)
+func (f *FlusherHTTP) runFlushTask(broadcastCh chan interface{}) {
+	jitterDuration := time.Duration(f.JitterInSec) * time.Second
+
+	for event := range f.queue {
+		eventWaitTime := time.Since(event.enqueueTime)
+
+		if eventWaitTime < jitterDuration {
+			if len(f.queue) < f.Concurrency {
+				randomSleep(f.JitterInSec, broadcastCh)
+			}
+		}
+
+		err := f.convertAndFlush(event.data)
 		if err != nil {
 			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed convert or flush data, data dropped, error", err)
 		}
@@ -435,8 +490,37 @@ func (f *FlusherHTTP) getNextRetryDelay(retryTime int) time.Duration {
 	return time.Duration(harf + jitter.Int64())
 }
 
+func (f *FlusherHTTP) compressData(data []byte) (io.Reader, error) {
+	var reader io.Reader = bytes.NewReader(data)
+	if compressionType, ok := f.Headers[contentEncodingHeader]; ok {
+		switch compressionType {
+		case "gzip":
+			var buf bytes.Buffer
+			gw := gzip.NewWriter(&buf)
+			if _, err := gw.Write(data); err != nil {
+				return nil, err
+			}
+			if err := gw.Close(); err != nil {
+				return nil, err
+			}
+			reader = &buf
+		case "snappy":
+			compressedData := snappy.Encode(nil, data)
+			reader = bytes.NewReader(compressedData)
+		default:
+		}
+	}
+	return reader, nil
+}
+
 func (f *FlusherHTTP) flush(data []byte, varValues map[string]string) (ok, retryable bool, err error) {
-	req, err := http.NewRequest(http.MethodPost, f.RemoteURL, bytes.NewReader(data))
+	reader, err := f.compressData(data)
+	if err != nil {
+		logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "create reader error", err)
+		return false, false, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, f.RemoteURL, reader)
 	if err != nil {
 		logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher create request fail, error", err)
 		return false, false, err
@@ -474,6 +558,7 @@ func (f *FlusherHTTP) flush(data []byte, varValues map[string]string) (ok, retry
 		}
 		req.Header.Add(k, v)
 	}
+
 	response, err := f.client.Do(req)
 	if logger.DebugFlag() {
 		logger.Debugf(f.context.GetRuntimeContext(), "request [method]: %v; [header]: %v; [url]: %v; [body]: %v", req.Method, req.Header, req.URL, string(data))
@@ -573,6 +658,12 @@ func (f *FlusherHTTP) fillRequestContentType() {
 		f.Headers = make(map[string]string, 4)
 	}
 
+	if f.Compression != "" {
+		if _, ok := supportedCompressionType[f.Compression]; ok {
+			f.Headers[contentEncodingHeader] = f.Compression
+		}
+	}
+
 	_, ok := f.Headers[contentTypeHeader]
 	if ok {
 		return
@@ -596,12 +687,40 @@ func isErrorEOF(err error) bool {
 	return errors.Is(err, io.EOF) || net.IsProbableEOF(err)
 }
 
+// randomSleep sleeps for a random duration between 0 and jitterInSec.
+// If jitterInSec is 0, it will skip sleep.
+// If shutdown is closed, it will stop sleep immediately.
+func randomSleep(mxJitterInSec int, stopChan chan interface{}) {
+	if mxJitterInSec == 0 {
+		return
+	}
+
+	sleepNs := getJitter(mxJitterInSec)
+	t := time.NewTimer(sleepNs)
+	select {
+	case <-t.C:
+		return
+	case <-stopChan:
+		t.Stop()
+		return
+	}
+}
+
+func getJitter(jitterInSec int) time.Duration {
+	jitter, err := rand.Int(rand.Reader, big.NewInt(int64(jitterInSec)*int64(time.Second)))
+	if err != nil {
+		return 0
+	}
+	return time.Duration(jitter.Int64())
+}
+
 func init() {
 	pipeline.Flushers["flusher_http"] = func() pipeline.Flusher {
 		return &FlusherHTTP{
 			QueueCapacity: 1024,
 			Timeout:       defaultTimeout,
 			Concurrency:   1,
+			JitterInSec:   0,
 			Convert: helper.ConvertConfig{
 				Protocol:             converter.ProtocolCustomSingle,
 				Encoding:             converter.EncodingJSON,
