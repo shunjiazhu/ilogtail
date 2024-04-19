@@ -370,7 +370,8 @@ func (f *FlusherHTTP) runFlushTask(broadcastCh chan interface{}) {
 
 		if eventWaitTime < jitterDuration {
 			if len(f.queue) < f.Concurrency {
-				randomSleep(f.JitterInSec, broadcastCh)
+				maxSleepDuration := jitterDuration - eventWaitTime
+				randomSleep(maxSleepDuration, broadcastCh)
 			}
 		}
 
@@ -690,13 +691,13 @@ func isErrorEOF(err error) bool {
 // randomSleep sleeps for a random duration between 0 and jitterInSec.
 // If jitterInSec is 0, it will skip sleep.
 // If shutdown is closed, it will stop sleep immediately.
-func randomSleep(mxJitterInSec int, stopChan chan interface{}) {
-	if mxJitterInSec == 0 {
+func randomSleep(maxJitter time.Duration, stopChan chan interface{}) {
+	if maxJitter == 0 {
 		return
 	}
 
-	sleepNs := getJitter(mxJitterInSec)
-	t := time.NewTimer(sleepNs)
+	sleepTime := getJitter(maxJitter)
+	t := time.NewTimer(sleepTime)
 	select {
 	case <-t.C:
 		return
@@ -706,8 +707,8 @@ func randomSleep(mxJitterInSec int, stopChan chan interface{}) {
 	}
 }
 
-func getJitter(jitterInSec int) time.Duration {
-	jitter, err := rand.Int(rand.Reader, big.NewInt(int64(jitterInSec)*int64(time.Second)))
+func getJitter(maxJitter time.Duration) time.Duration {
+	jitter, err := rand.Int(rand.Reader, big.NewInt(int64(maxJitter)))
 	if err != nil {
 		return 0
 	}
