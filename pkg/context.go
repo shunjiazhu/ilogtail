@@ -17,6 +17,7 @@ package pkg
 import (
 	"context"
 
+	"github.com/alibaba/ilogtail/pkg/config"
 	"github.com/alibaba/ilogtail/pkg/util"
 )
 
@@ -37,11 +38,15 @@ type LogtailMetaKey string
 // NewLogtailContextMeta create a LogtailContextMeta instance.
 func NewLogtailContextMeta(project, logstore, configName string) (context.Context, *LogtailContextMeta) {
 	meta := &LogtailContextMeta{
-		project:      project,
-		logstore:     logstore,
-		configName:   configName,
-		loggerHeader: "[" + configName + "," + logstore + "]\t",
-		alarm:        new(util.Alarm),
+		project:    project,
+		logstore:   logstore,
+		configName: config.GetRealConfigName(configName),
+		alarm:      new(util.Alarm),
+	}
+	if len(logstore) == 0 {
+		meta.loggerHeader = "[" + configName + "]\t"
+	} else {
+		meta.loggerHeader = "[" + configName + "," + logstore + "]\t"
 	}
 	meta.alarm.Init(project, logstore)
 	ctx := context.WithValue(context.Background(), LogTailMeta, meta)
@@ -51,10 +56,14 @@ func NewLogtailContextMeta(project, logstore, configName string) (context.Contex
 // NewLogtailContextMetaWithoutAlarm create a LogtailContextMeta without alarm instance.
 func NewLogtailContextMetaWithoutAlarm(project, logstore, configName string) (context.Context, *LogtailContextMeta) {
 	meta := &LogtailContextMeta{
-		project:      project,
-		logstore:     logstore,
-		configName:   configName,
-		loggerHeader: "[" + configName + "," + logstore + "]\t",
+		project:    project,
+		logstore:   logstore,
+		configName: configName,
+	}
+	if len(logstore) == 0 {
+		meta.loggerHeader = "[" + configName + "]\t"
+	} else {
+		meta.loggerHeader = "[" + configName + "," + logstore + "]\t"
 	}
 	ctx := context.WithValue(context.Background(), LogTailMeta, meta)
 	return ctx, meta

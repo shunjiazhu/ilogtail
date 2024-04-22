@@ -46,11 +46,7 @@ const (
 	maxMsgSize            = 1024 * 1024 * 16
 )
 
-var (
-	containerdUnixSocket  = "/run/containerd/containerd.sock"
-	dockerShimUnixSocket1 = "/var/run/dockershim.sock"
-	dockerShimUnixSocket2 = "/run/dockershim.sock"
-)
+var containerdUnixSocket = "/run/containerd/containerd.sock"
 
 var criRuntimeWrapper *CRIRuntimeWrapper
 
@@ -82,14 +78,6 @@ type CRIRuntimeWrapper struct {
 func IsCRIRuntimeValid(criRuntimeEndpoint string) bool {
 	if len(os.Getenv("USE_CONTAINERD")) > 0 {
 		return true
-	}
-
-	// Verify dockershim.sock existence.
-	for _, sock := range []string{dockerShimUnixSocket1, dockerShimUnixSocket2} {
-		if fi, err := os.Stat(sock); err == nil && !fi.IsDir() {
-			// Having dockershim.sock means k8s + docker cri
-			return false
-		}
 	}
 
 	// Verify containerd.sock cri valid.
@@ -405,11 +393,15 @@ func (cw *CRIRuntimeWrapper) fetchAll() error {
 		}
 
 		dockerContainer, _, _, err := cw.createContainerInfo(c.GetId())
-		if dockerContainer.Status() != ContainerStatusRunning {
+		if err != nil {
+			logger.Errorf(context.Background(), "CREATE_CONTAINERD_INFO_ALARM", "Create container info from cri-runtime error, Container Info: %+v, err: %v", c, err)
 			continue
 		}
-		if err != nil {
-			logger.Debug(context.Background(), "Create container info from cri-runtime error", err)
+		if dockerContainer == nil || dockerContainer.ContainerInfo.ContainerJSONBase == nil {
+			logger.Error(context.Background(), "CREATE_CONTAINERD_INFO_ALARM", "Create container info from cri-runtime error, Container Info:%+v", c)
+			continue
+		}
+		if dockerContainer.Status() != ContainerStatusRunning {
 			continue
 		}
 		cw.containers[c.GetId()] = &innerContainerInfo{

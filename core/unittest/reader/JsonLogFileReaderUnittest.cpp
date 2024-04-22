@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "unittest/Unittest.h"
 #include <stdio.h>
+
 #include <fstream>
-#include "reader/JsonLogFileReader.h"
-#include "common/RuntimeUtil.h"
+
 #include "common/FileSystemUtil.h"
-#include "util.h"
+#include "common/RuntimeUtil.h"
+#include "file_server/FileServer.h"
+#include "reader/JsonLogFileReader.h"
+#include "unittest/Unittest.h"
 
 DECLARE_FLAG_INT32(force_release_deleted_file_fd_timeout);
 
@@ -59,24 +61,25 @@ public:
                 break;
             };
         }
+        FileServer::GetInstance()->AddFileDiscoveryConfig("", &discoveryOpts, &ctx);
     }
-    void TearDown() override { LogFileReader::BUFFER_SIZE = 1024 * 512; }
+    void TearDown() override {
+        LogFileReader::BUFFER_SIZE = 1024 * 512;
+        FileServer::GetInstance()->RemoveFileDiscoveryConfig("");
+    }
     void TestReadGBK();
     void TestReadUTF8();
 
-    std::string projectName = "projectName";
-    std::string category = "logstoreName";
-    std::string timeFormat = "";
-    std::string topicFormat = "";
-    std::string groupTopic = "";
     std::unique_ptr<char[]> expectedContent;
     static std::string logPathDir;
     static std::string gbkFile;
     static std::string utf8File;
+    FileDiscoveryOptions discoveryOpts;
+    PipelineContext ctx;
 };
 
-UNIT_TEST_CASE(JsonLogFileReaderUnittest, TestReadGBK);
-UNIT_TEST_CASE(JsonLogFileReaderUnittest, TestReadUTF8);
+UNIT_TEST_CASE(JsonLogFileReaderUnittest, TestReadGBK)
+UNIT_TEST_CASE(JsonLogFileReaderUnittest, TestReadUTF8)
 
 std::string JsonLogFileReaderUnittest::logPathDir;
 std::string JsonLogFileReaderUnittest::gbkFile;
@@ -84,17 +87,11 @@ std::string JsonLogFileReaderUnittest::utf8File;
 
 void JsonLogFileReaderUnittest::TestReadGBK() {
     { // buffer size big enough and is json
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 gbkFile,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_GBK,
-                                 false,
-                                 false);
+        MultilineOptions multilineOpts;
+        FileReaderOptions readerOpts;
+        readerOpts.mFileEncoding = FileReaderOptions::Encoding::GBK;
+        JsonLogFileReader reader(
+            logPathDir, gbkFile, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
         reader.CheckFileSignatureAndOffset(true);
@@ -108,20 +105,16 @@ void JsonLogFileReaderUnittest::TestReadGBK() {
     }
     { // buffer size not big enough to hold any json
       // should read buffer size
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 gbkFile,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_GBK,
-                                 false,
-                                 false);
+        Json::Value config;
+        config["StartPattern"] = "no matching pattern";
+        MultilineOptions multilineOpts;
+        multilineOpts.Init(config, ctx, "");
+        FileReaderOptions readerOpts;
+        readerOpts.mFileEncoding = FileReaderOptions::Encoding::GBK;
+        JsonLogFileReader reader(
+            logPathDir, gbkFile, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         LogFileReader::BUFFER_SIZE = 23;
         size_t BUFFER_SIZE_UTF8 = 25; // "{"first":"iLogtail 为可"
-        reader.SetLogMultilinePolicy("no matching pattern", ".*", ".*");
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
         reader.CheckFileSignatureAndOffset(true);
@@ -134,17 +127,11 @@ void JsonLogFileReaderUnittest::TestReadGBK() {
     }
     { // buffer size not big enough to hold all json
         // should read until last json
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 gbkFile,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_GBK,
-                                 false,
-                                 false);
+        MultilineOptions multilineOpts;
+        FileReaderOptions readerOpts;
+        readerOpts.mFileEncoding = FileReaderOptions::Encoding::GBK;
+        JsonLogFileReader reader(
+            logPathDir, gbkFile, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
         int64_t fileSize = reader.mLogFileOp.GetFileSize();
@@ -162,17 +149,10 @@ void JsonLogFileReaderUnittest::TestReadGBK() {
 
 void JsonLogFileReaderUnittest::TestReadUTF8() {
     { // buffer size big enough and is json
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 utf8File,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_UTF8,
-                                 false,
-                                 false);
+        MultilineOptions multilineOpts;
+        FileReaderOptions readerOpts;
+        JsonLogFileReader reader(
+            logPathDir, utf8File, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
         reader.CheckFileSignatureAndOffset(true);
@@ -186,17 +166,10 @@ void JsonLogFileReaderUnittest::TestReadUTF8() {
     }
     { // buffer size not big enough to hold any json
       // should read buffer size
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 utf8File,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_UTF8,
-                                 false,
-                                 false);
+        MultilineOptions multilineOpts;
+        FileReaderOptions readerOpts;
+        JsonLogFileReader reader(
+            logPathDir, utf8File, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         LogFileReader::BUFFER_SIZE = 25;
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
@@ -209,18 +182,11 @@ void JsonLogFileReaderUnittest::TestReadUTF8() {
                                 logBuffer.rawBuffer.data());
     }
     { // buffer size not big enough to hold all json
-        // should read until last json
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 utf8File,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_UTF8,
-                                 false,
-                                 false);
+      // should read until last json
+        MultilineOptions multilineOpts;
+        FileReaderOptions readerOpts;
+        JsonLogFileReader reader(
+            logPathDir, utf8File, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
         int64_t fileSize = reader.mLogFileOp.GetFileSize();
@@ -235,17 +201,10 @@ void JsonLogFileReaderUnittest::TestReadUTF8() {
         APSARA_TEST_STREQ_FATAL(expectedPart.c_str(), logBuffer.rawBuffer.data());
     }
     { // read twice
-        JsonLogFileReader reader(projectName,
-                                 category,
-                                 logPathDir,
-                                 utf8File,
-                                 INT32_FLAG(default_tail_limit_kb),
-                                 timeFormat,
-                                 topicFormat,
-                                 groupTopic,
-                                 FileEncoding::ENCODING_UTF8,
-                                 false,
-                                 false);
+        MultilineOptions multilineOpts;
+        FileReaderOptions readerOpts;
+        JsonLogFileReader reader(
+            logPathDir, utf8File, DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx));
         reader.UpdateReaderManual();
         reader.InitReader(true, LogFileReader::BACKWARD_TO_BEGINNING);
         int64_t fileSize = reader.mLogFileOp.GetFileSize();
@@ -270,43 +229,38 @@ void JsonLogFileReaderUnittest::TestReadUTF8() {
     }
 }
 
-class LastMatchedLineUnittest : public ::testing::Test {
+class RemoveLastIncompleteLogUnittest : public ::testing::Test {
 public:
-    LastMatchedLineUnittest()
-        : mLogFileReader("project",
-                         "logstore",
-                         "dir",
-                         "file",
-                         INT32_FLAG(default_tail_limit_kb),
-                         "",
-                         "",
-                         "",
-                         FileEncoding::ENCODING_UTF8,
-                         false,
-                         false) {}
+    void SetUp() override {
+        mLogFileReader.reset(new JsonLogFileReader(
+            "dir", "file", DevInode(), std::make_pair(&readerOpts, &ctx), std::make_pair(&multilineOpts, &ctx)));
+    }
 
-    void TestLastMatchedLineSingleLine();
-    void TestLastMatchedLineSingleLineIncomplete();
-    void TestLastMatchedLineSingleLineIncompleteNoRollback();
-    void TestLastMatchedLineMultiline();
-    void TestLastMatchedLineMultilineIncomplete();
-    void TestLastMatchedLineMultilineIncompleteNoRollback();
-    void TestLastMatchedLineNotValidJson();
-    void TestLastMatchedLineNotValidJsonNoRollback();
+    void TestRemoveLastIncompleteLogSingleLine();
+    void TestRemoveLastIncompleteLogSingleLineIncomplete();
+    void TestRemoveLastIncompleteLogSingleLineIncompleteNoRollback();
+    void TestRemoveLastIncompleteLogMultiline();
+    void TestRemoveLastIncompleteLogMultilineIncomplete();
+    void TestRemoveLastIncompleteLogMultilineIncompleteNoRollback();
+    void TestRemoveLastIncompleteLogNotValidJson();
+    void TestRemoveLastIncompleteLogNotValidJsonNoRollback();
 
-    JsonLogFileReader mLogFileReader;
+    std::unique_ptr<JsonLogFileReader> mLogFileReader;
+    MultilineOptions multilineOpts;
+    FileReaderOptions readerOpts;
+    PipelineContext ctx;
 };
 
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineSingleLine);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineSingleLineIncomplete);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineSingleLineIncompleteNoRollback);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineMultiline);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineMultilineIncomplete);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineMultilineIncompleteNoRollback);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineNotValidJson);
-UNIT_TEST_CASE(LastMatchedLineUnittest, TestLastMatchedLineNotValidJsonNoRollback);
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogSingleLine)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogSingleLineIncomplete)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogSingleLineIncompleteNoRollback)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogMultiline)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogMultilineIncomplete)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogMultilineIncompleteNoRollback)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogNotValidJson)
+UNIT_TEST_CASE(RemoveLastIncompleteLogUnittest, TestRemoveLastIncompleteLogNotValidJsonNoRollback)
 
-void LastMatchedLineUnittest::TestLastMatchedLineSingleLine() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogSingleLine() {
     { // case single line
         std::string line1 = R"({"key": "first value"})";
         std::string line2 = R"({"key": "second value"})";
@@ -314,15 +268,15 @@ void LastMatchedLineUnittest::TestLastMatchedLineSingleLine() {
         std::string expectMatch = line1 + '\0' + line2 + '\0' + line3 + '\0';
         std::string testLog = line1 + '\n' + line2 + '\n' + line3 + '\n';
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(0, rollbackLineFeedCount);
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncomplete() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogSingleLineIncomplete() {
     { // case single line, buffer size not big enough, json truncated
         std::string line1 = R"({"key": "first value"})";
         std::string line2 = R"({"key": "second value"})";
@@ -330,8 +284,8 @@ void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncomplete() {
         std::string expectMatch = line1 + '\0' + line2 + '\0';
         std::string testLog = line1 + '\n' + line2 + '\n' + line3;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(1, rollbackLineFeedCount);
@@ -343,15 +297,15 @@ void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncomplete() {
         std::string expectMatch = line1 + '\0' + line2 + '\0';
         std::string testLog = line1 + '\n' + line2 + '\n' + line3;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(1, rollbackLineFeedCount);
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncompleteNoRollback() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogSingleLineIncompleteNoRollback() {
     { // case single line, buffer size not big enough, json truncated
         std::string line1 = R"({"key": "first value"})";
         std::string line2 = R"({"key": "second value"})";
@@ -359,7 +313,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncompleteNoRollback(
         std::string expectMatch = line1 + '\0' + line2 + '\0' + line3;
         std::string testLog = line1 + '\n' + line2 + '\n' + line3;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
@@ -372,7 +326,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncompleteNoRollback(
         std::string expectMatch = line1 + '\0' + line2 + '\0' + line3;
         std::string testLog = line1 + '\n' + line2 + '\n' + line3;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
@@ -380,7 +334,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineSingleLineIncompleteNoRollback(
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineMultiline() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogMultiline() {
     { // case multi line
         std::vector<int32_t> index;
         std::string firstLog = R"({
@@ -394,15 +348,15 @@ void LastMatchedLineUnittest::TestLastMatchedLineMultiline() {
         std::string expectMatch = firstLog + '\0' + secondLog + '\0';
         std::string testLog = firstLog + '\n' + secondLog + '\n';
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(0, rollbackLineFeedCount);
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncomplete() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogMultilineIncomplete() {
     { // case multi line, buffer size not enough, json truncated
         std::vector<int32_t> index;
         std::string firstLog = R"({
@@ -415,8 +369,8 @@ void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncomplete() {
         std::string expectMatch = firstLog + '\0';
         std::string testLog = firstLog + '\n' + secondLog + '\n';
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(4, rollbackLineFeedCount);
@@ -434,15 +388,15 @@ void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncomplete() {
         std::string expectMatch = firstLog + '\0';
         std::string testLog = firstLog + '\n' + secondLog;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(5, rollbackLineFeedCount);
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncompleteNoRollback() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogMultilineIncompleteNoRollback() {
     { // case multi line, buffer size not enough, json truncated
         std::vector<int32_t> index;
         std::string firstLog = R"({
@@ -457,7 +411,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncompleteNoRollback()
         std::string expectMatch = firstLog + '\0' + splittedSecondLog + '\0';
         std::string testLog = firstLog + '\n' + secondLog + '\n';
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
@@ -476,7 +430,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncompleteNoRollback()
         std::string expectMatch = firstLog + '\0' + secondLog;
         std::string testLog = firstLog + '\n' + secondLog;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
@@ -484,12 +438,12 @@ void LastMatchedLineUnittest::TestLastMatchedLineMultilineIncompleteNoRollback()
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineNotValidJson() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogNotValidJson() {
     { // case not json, skip all
         std::string testLog = "not a json at all.\nnot a json at all.\nnot a json at all.\n";
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(testLog.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(0, rollbackLineFeedCount);
     }
@@ -499,8 +453,8 @@ void LastMatchedLineUnittest::TestLastMatchedLineNotValidJson() {
         std::replace(expectMatch.begin(), expectMatch.end(), '\n', '\0');
         std::string testLog = "not a json at all.\nnot a json at all.\n{partial json\n";
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(1, rollbackLineFeedCount);
@@ -517,19 +471,19 @@ void LastMatchedLineUnittest::TestLastMatchedLineNotValidJson() {
         std::string expectMatch = firstLog + '\0' + notjson;
         ;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize
-            = mLogFileReader.LastMatchedLine(const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
+            const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
         APSARA_TEST_EQUAL_FATAL(0, rollbackLineFeedCount);
     }
 }
 
-void LastMatchedLineUnittest::TestLastMatchedLineNotValidJsonNoRollback() {
+void RemoveLastIncompleteLogUnittest::TestRemoveLastIncompleteLogNotValidJsonNoRollback() {
     { // case not json
         std::string testLog = "not a json at all.\nnot a json at all.\nnot a json at all.\n";
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(testLog.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(0, rollbackLineFeedCount);
@@ -539,7 +493,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineNotValidJsonNoRollback() {
         std::string expectMatch = testLog;
         std::replace(expectMatch.begin(), expectMatch.end(), '\n', '\0');
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
@@ -557,7 +511,7 @@ void LastMatchedLineUnittest::TestLastMatchedLineNotValidJsonNoRollback() {
         std::string expectMatch = firstLog + '\0' + notjson;
         ;
         int32_t rollbackLineFeedCount = 0;
-        size_t matchSize = mLogFileReader.LastMatchedLine(
+        size_t matchSize = mLogFileReader->RemoveLastIncompleteLog(
             const_cast<char*>(testLog.data()), testLog.size(), rollbackLineFeedCount, false);
         APSARA_TEST_EQUAL_FATAL(expectMatch.size(), matchSize);
         APSARA_TEST_EQUAL_FATAL(std::string(testLog.data(), matchSize), expectMatch);
@@ -565,154 +519,6 @@ void LastMatchedLineUnittest::TestLastMatchedLineNotValidJsonNoRollback() {
     }
 }
 
-class LogSplitUnittest : public ::testing::Test {
-public:
-    void TestLogSplitSingleLine();
-    void TestLogSplitMultiLine();
-};
-
-UNIT_TEST_CASE(LogSplitUnittest, TestLogSplitSingleLine);
-UNIT_TEST_CASE(LogSplitUnittest, TestLogSplitMultiLine);
-
-void LogSplitUnittest::TestLogSplitSingleLine() {
-    JsonLogFileReader logFileReader(
-        "project", "logstore", "dir", "file", INT32_FLAG(default_tail_limit_kb), "", "", "", ENCODING_UTF8, false);
-    std::string line1 = R"({"key": "first value"})";
-    std::string line2 = R"({"key": "first value"})";
-    std::string line3 = R"({"key": "first value"})";
-    std::string testLog = line1 + '\0' + line2 + '\0' + line3;
-    int32_t lineFeed = 0;
-    std::vector<StringView> index;
-    std::vector<StringView> discard;
-    bool splitSuccess = logFileReader.LogSplit(testLog.data(), testLog.size(), lineFeed, index, discard);
-    APSARA_TEST_TRUE_FATAL(splitSuccess);
-    APSARA_TEST_EQUAL_FATAL(3UL, index.size());
-    APSARA_TEST_EQUAL_FATAL(line1, index[0].to_string());
-    APSARA_TEST_EQUAL_FATAL(line2, index[1].to_string());
-    APSARA_TEST_EQUAL_FATAL(line3, index[2].to_string());
-}
-
-void LogSplitUnittest::TestLogSplitMultiLine() {
-    JsonLogFileReader logFileReader(
-        "project", "logstore", "dir", "file", INT32_FLAG(default_tail_limit_kb), "", "", "", ENCODING_UTF8, false);
-    std::string line1 = R"({
-    "key": "first value"
-})";
-    std::string line2 = R"(
-    "key": "first value"
-})";
-    std::string line3 = R"({
-    "key": "first value"
-})";
-    std::string testLog = line1 + '\0' + line2 + '\0' + line3;
-    int32_t lineFeed = 0;
-    std::vector<StringView> index;
-    std::vector<StringView> discard;
-    bool splitSuccess = logFileReader.LogSplit(testLog.data(), testLog.size(), lineFeed, index, discard);
-    APSARA_TEST_TRUE_FATAL(splitSuccess);
-    APSARA_TEST_EQUAL_FATAL(3UL, index.size());
-    APSARA_TEST_EQUAL_FATAL(line1, index[0].to_string());
-    APSARA_TEST_EQUAL_FATAL(line2, index[1].to_string());
-    APSARA_TEST_EQUAL_FATAL(line3, index[2].to_string());
-}
-
-class JsonParseLogLineUnittest : public ::testing::Test {
-public:
-    void TestCanBeParsed();
-    void TestCanNotBeParsedUnDiscard();
-    void TestCanNotBeParsedDiscard();
-
-    static void SetUpTestCase() { BOOL_FLAG(ilogtail_discard_old_data) = false; }
-};
-
-UNIT_TEST_CASE(JsonParseLogLineUnittest, TestCanBeParsed);
-UNIT_TEST_CASE(JsonParseLogLineUnittest, TestCanNotBeParsedUnDiscard);
-UNIT_TEST_CASE(JsonParseLogLineUnittest, TestCanNotBeParsedDiscard);
-
-void JsonParseLogLineUnittest::TestCanBeParsed() {
-    JsonLogFileReader logFileReader("project",
-                                    "logstore",
-                                    "dir",
-                                    "file",
-                                    INT32_FLAG(default_tail_limit_kb),
-                                    "",
-                                    "",
-                                    "",
-                                    ENCODING_UTF8,
-                                    false,
-                                    false);
-    sls_logs::LogGroup logGroup;
-    ParseLogError error;
-    LogtailTime lastLogLineTime = {0, 0};
-    std::string lastLogTimeStr = "";
-    uint32_t logGroupSize = 0;
-    std::string testLog = "{\n"
-                          "\"url\": \"POST /PutData?Category=YunOsAccountOpLog HTTP/1.1\",\n"
-                          "\"time\": \"07/Jul/2022:10:30:28\"\n}";
-    bool successful
-        = logFileReader.ParseLogLine(testLog, logGroup, error, lastLogLineTime, lastLogTimeStr, logGroupSize);
-    APSARA_TEST_TRUE_FATAL(successful);
-    APSARA_TEST_EQUAL_FATAL(logGroupSize, 86U);
-}
-
-void JsonParseLogLineUnittest::TestCanNotBeParsedUnDiscard() {
-    JsonLogFileReader logFileReader("project",
-                                    "logstore",
-                                    "dir",
-                                    "file",
-                                    INT32_FLAG(default_tail_limit_kb),
-                                    "",
-                                    "",
-                                    "",
-                                    ENCODING_UTF8,
-                                    false,
-                                    false);
-    sls_logs::LogGroup logGroup;
-    ParseLogError error;
-    LogtailTime lastLogLineTime = {0, 0};
-    std::string lastLogTimeStr = "";
-    uint32_t logGroupSize = 0;
-    logFileReader.mDiscardUnmatch = false;
-    std::string testLog = "{\n"
-                          "\"url\": \"POST /PutData?Category=YunOsAccountOpLog HTTP/1.1\",\n"
-                          "\"time\": \n}";
-    bool successful
-        = logFileReader.ParseLogLine(testLog, logGroup, error, lastLogLineTime, lastLogTimeStr, logGroupSize);
-    APSARA_TEST_FALSE_FATAL(successful);
-    APSARA_TEST_EQUAL_FATAL(logGroupSize, 88U);
-}
-
-void JsonParseLogLineUnittest::TestCanNotBeParsedDiscard() {
-    JsonLogFileReader logFileReader("project",
-                                    "logstore",
-                                    "dir",
-                                    "file",
-                                    INT32_FLAG(default_tail_limit_kb),
-                                    "",
-                                    "",
-                                    "",
-                                    ENCODING_UTF8,
-                                    false,
-                                    false);
-    sls_logs::LogGroup logGroup;
-    ParseLogError error;
-    LogtailTime lastLogLineTime = {0, 0};
-    std::string lastLogTimeStr = "";
-    uint32_t logGroupSize = 0;
-    logFileReader.mDiscardUnmatch = true;
-    std::string testLog = "{\n"
-                          "\"url\": \"POST /PutData?Category=YunOsAccountOpLog HTTP/1.1\",\n"
-                          "\"time\": \n}";
-    bool successful
-        = logFileReader.ParseLogLine(testLog, logGroup, error, lastLogLineTime, lastLogTimeStr, logGroupSize);
-    APSARA_TEST_FALSE_FATAL(successful);
-    APSARA_TEST_EQUAL_FATAL(logGroupSize, 0U);
-}
-
 } // namespace logtail
 
-int main(int argc, char** argv) {
-    logtail::Logger::Instance().InitGlobalLoggers();
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+UNIT_TEST_MAIN

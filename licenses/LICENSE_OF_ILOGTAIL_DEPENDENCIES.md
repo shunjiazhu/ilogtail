@@ -3,10 +3,10 @@
 When distributed in a binary form, iLogtail may contain portions of the following works:
 
 ## Apache 2.0 licenses
+
 - [github.com/openkruise/kruise-api](https://pkg.go.dev/github.com/openkruise/kruise-api?tab=licenses)
 - [sigs.k8s.io/gateway-api](https://pkg.go.dev/sigs.k8s.io/gateway-api?tab=licenses)
 - [cloud.google.com/go/compute/metadata](https://pkg.go.dev/cloud.google.com/go/compute/metadata?tab=licenses)
-- [github.com/aliyun/alibaba-cloud-sdk-go](https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go?tab=licenses)
 - [github.com/containerd/cgroups](https://pkg.go.dev/github.com/containerd/cgroups?tab=licenses)
 - [github.com/containerd/containerd](https://pkg.go.dev/github.com/containerd/containerd?tab=licenses)
 - [github.com/containerd/continuity](https://pkg.go.dev/github.com/containerd/continuity?tab=licenses)
@@ -31,14 +31,12 @@ When distributed in a binary form, iLogtail may contain portions of the followin
 - [github.com/intel/goresctrl](https://pkg.go.dev/github.com/intel/goresctrl?tab=licenses)
 - [github.com/go-logr/logr](https://pkg.go.dev/github.com/go-logr/logr?tab=licenses)
 - [github.com/gogo/googleapis](https://pkg.go.dev/github.com/gogo/googleapis?tab=licenses)
-- [github.com/golang/groupcache](https://pkg.go.dev/github.com/golang/groupcache?tab=licenses)
 - [github.com/golang-sql/civil](https://pkg.go.dev/github.com/golang-sql/civil?tab=licenses)
 - [github.com/google/gofuzz](https://pkg.go.dev/github.com/google/gofuzz?tab=licenses)
 - [github.com/jcmturner/aescts](https://pkg.go.dev/github.com/jcmturner/aescts?tab=licenses)
 - [github.com/jcmturner/dnsutils](https://pkg.go.dev/github.com/jcmturner/dnsutils?tab=licenses)
 - [github.com/jcmturner/gokrb5](https://pkg.go.dev/github.com/jcmturner/gokrb5?tab=licenses)
 - [github.com/jcmturner/rpc](https://pkg.go.dev/github.com/jcmturner/rpc?tab=licenses)
-- [github.com/jmespath/go-jmespath](https://pkg.go.dev/github.com/jmespath/go-jmespath?tab=licenses)
 - [github.com/matttproud/golang\_protobuf\_extensions](https://pkg.go.dev/github.com/matttproud/golang_protobuf_extensions?tab=licenses)
 - [github.com/moby/locker](https://pkg.go.dev/github.com/moby/locker?tab=licenses)
 - [github.com/moby/spdystream](https://pkg.go.dev/github.com/moby/spdystream?tab=licenses)
@@ -98,10 +96,10 @@ When distributed in a binary form, iLogtail may contain portions of the followin
 - [github.com/grafana/loki-client-go](https://pkg.go.dev/github.com/grafana/loki-client-go?tab=licenses)
 - [github.com/mwitkow/go-conntrack](https://pkg.go.dev/github.com/mwitkow/go-conntrack?tab=licenses)
 - [sigs.k8s.io/json](https://pkg.go.dev/sigs.k8s.io/json?tab=licenses)
-- [gopkg.in/ini.v1](https://pkg.go.dev/gopkg.in/ini.v1?tab=licenses)
 - [go.opentelemetry.io/proto/otlp](https://pkg.go.dev/go.opentelemetry.io/proto/otlp?tab=licenses)
 
 ## BSD licenses
+
 - [github.com/klauspost/compress](https://pkg.go.dev/github.com/klauspost/compress?tab=licenses)
 - [github.com/danwakefield/fnmatch](https://pkg.go.dev/github.com/danwakefield/fnmatch?tab=licenses)
 - [github.com/denisenkom/go-mssqldb](https://pkg.go.dev/github.com/denisenkom/go-mssqldb?tab=licenses)
@@ -158,11 +156,9 @@ When distributed in a binary form, iLogtail may contain portions of the followin
 - [github.com/BurntSushi/toml](https://pkg.go.dev/github.com/BurntSushi/toml?tab=licenses)
 - [github.com/Microsoft/go-winio](https://pkg.go.dev/github.com/Microsoft/go-winio?tab=licenses)
 - [github.com/Microsoft/hcsshim](https://pkg.go.dev/github.com/Microsoft/hcsshim?tab=licenses)
-- [github.com/Shopify/sarama](https://pkg.go.dev/github.com/Shopify/sarama?tab=licenses)
+- [github.com/IBM/sarama](https://pkg.go.dev/github.com/IBM/sarama?tab=licenses)
 - [github.com/VictoriaMetrics/fasthttp](https://pkg.go.dev/github.com/VictoriaMetrics/fasthttp?tab=licenses)
-- [github.com/aliyun/aliyun-log-go-sdk](https://pkg.go.dev/github.com/aliyun/aliyun-log-go-sdk?tab=licenses)
 - [github.com/buger/jsonparser](https://pkg.go.dev/github.com/buger/jsonparser?tab=licenses)
-- [github.com/cenkalti/backoff](https://pkg.go.dev/github.com/cenkalti/backoff?tab=licenses)
 - [github.com/cespare/xxhash](https://pkg.go.dev/github.com/cespare/xxhash?tab=licenses)
 - [github.com/eapache/go-resiliency](https://pkg.go.dev/github.com/eapache/go-resiliency?tab=licenses)
 - [github.com/eapache/go-xerial-snappy](https://pkg.go.dev/github.com/eapache/go-xerial-snappy?tab=licenses)
@@ -258,6 +254,7 @@ When distributed in a binary form, iLogtail may contain portions of the followin
 ## EPL V2 licenses
 
 ## iLogtail used or modified source code from these projects
+
 - [github.com/iLogtail/VictoriaMetrics fork from github.com/VictoriaMetrics/VictoriaMetrics](http://github.com/iLogtail/VictoriaMetrics) based on Apache-2.0
 - [github.com/iLogtail/go-mysql fork from github.com/siddontang/go-mysql](http://github.com/iLogtail/go-mysql) based on MIT
 - [github.com/iLogtail/jfr-parser fork from github.com/pyroscope-io/jfr-parser](http://github.com/iLogtail/jfr-parser) based on Apache-2.0

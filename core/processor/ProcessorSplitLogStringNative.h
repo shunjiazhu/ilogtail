@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <cstdint>
+#include <vector>
+
+#include "common/Constants.h"
 #include "plugin/interface/Processor.h"
-#include <string>
-#include <boost/regex.hpp>
 
 namespace logtail {
 
@@ -24,23 +28,26 @@ class ProcessorSplitLogStringNative : public Processor {
 public:
     static const std::string sName;
 
+    std::string mSourceKey = DEFAULT_CONTENT_KEY;
+    char mSplitChar = '\n';
+    bool mAppendingLogPositionMeta = false;
+
     const std::string& Name() const override { return sName; }
-    bool Init(const ComponentConfig& componentConfig) override;
+    bool Init(const Json::Value& config) override;
     void Process(PipelineEventGroup& logGroup) override;
 
 protected:
     bool IsSupportedEvent(const PipelineEventPtr& e) const override;
 
 private:
-    void ProcessEvent(PipelineEventGroup& logGroup, const PipelineEventPtr& e, EventsContainer& newEvents);
-    void LogSplit(const char* buffer, int32_t size, int32_t& lineFeed, std::vector<StringView>& logIndex);
-    int* mFeedLines = nullptr;
+    void ProcessEvent(PipelineEventGroup& logGroup, PipelineEventPtr&& e, EventsContainer& newEvents);
+    StringView GetNextLine(StringView log, size_t begin);
+
     int* mSplitLines = nullptr;
-    std::string mSplitKey;
-    char mSplitChar = '\n';
-    bool mEnableLogPositionMeta = false;
+
 #ifdef APSARA_UNIT_TEST_MAIN
     friend class ProcessorRegexStringNativeUnittest;
+    friend class ProcessorParseDelimiterNativeUnittest;
 #endif
 };
 

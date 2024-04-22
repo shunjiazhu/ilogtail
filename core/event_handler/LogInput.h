@@ -17,10 +17,12 @@
 #ifndef __LOG_ILOGTAIL_LOG_INPUT_H__
 #define __LOG_ILOGTAIL_LOG_INPUT_H__
 
-#include <string>
+#include <condition_variable>
 #include <queue>
-#include <vector>
+#include <string>
 #include <unordered_set>
+#include <vector>
+
 #include "common/Lock.h"
 #include "common/LogRunnable.h"
 
@@ -36,8 +38,7 @@ public:
         return ptr;
     }
 
-    void Resume() {} // TODO: Refine interface to avoid ambiguous.
-    void Resume(bool addCheckPointEventFlag = false);
+    void Resume();
     void Start();
     void HoldOn();
     void PushEventQueue(std::vector<Event*>& eventVec);
@@ -64,7 +65,7 @@ private:
     void* ProcessLoop();
     void ProcessEvent(EventDispatcher* dispatcher, Event* ev);
     Event* PopEventQueue();
-    void CheckAndUpdateCriticalMetric(int32_t curTime);
+    void UpdateCriticalMetric(int32_t curTime);
 
     std::queue<Event*> mInotifyEventQueue;
     std::unordered_set<int64_t> mModifyEventSet;
@@ -79,6 +80,8 @@ private:
     int32_t mLastUpdateMetricTime;
 
     std::atomic_int mLastReadEventTime{0};
+    mutable std::mutex mThreadRunningMux;
+    mutable std::condition_variable mStopCV;
 
 #ifdef APSARA_UNIT_TEST_MAIN
     friend class LogInputUnittest;

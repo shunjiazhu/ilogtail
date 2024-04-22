@@ -15,15 +15,16 @@
  */
 
 #pragma once
-#include "reader/LogFileReader.h"
 #include <time.h>
-#include <map>
+
 #include <deque>
+#include <map>
 #include <unordered_map>
+
+#include "reader/LogFileReader.h"
 
 namespace logtail {
 
-class Config;
 class Event;
 
 struct RenameInfo {
@@ -38,6 +39,7 @@ public:
     virtual void Handle(const Event& event) = 0;
     virtual void HandleTimeOut() = 0;
     virtual bool DumpReaderMeta(bool isRotatorReader, bool checkConfigFlag) = 0;
+    virtual bool IsAllFileRead() { return true; }
     virtual ~EventHandler() {}
 };
 
@@ -72,11 +74,13 @@ private:
         return left->GetLastUpdateTime() < right->GetLastUpdateTime();
     }
 
-
     LogFileReaderPtr CreateLogFileReaderPtr(const std::string& path,
                                             const std::string& name,
-                                            Config* pConfig,
                                             const DevInode& devInode,
+                                            const FileReaderConfig& readerConfig,
+                                            const MultilineConfig& multilineConfig,
+                                            const FileDiscoveryConfig& discoveryConfig,
+                                            uint32_t exactlyonceConcurrency = 0,
                                             bool forceBeginingFlag = false);
 
     int32_t PushLogToProcessor(LogFileReaderPtr reader, LogBuffer* logBuffer);
@@ -88,11 +92,12 @@ private:
     ModifyHandler& operator=(const ModifyHandler&);
 
 public:
-    ModifyHandler(const std::string& configName, Config* pConfig);
+    ModifyHandler(const std::string& configName, const FileDiscoveryConfig& pConfig);
     virtual ~ModifyHandler();
     virtual void Handle(const Event& event);
     virtual void HandleTimeOut();
     virtual bool DumpReaderMeta(bool isRotatorReader, bool checkConfigFlag);
+    bool IsAllFileRead() override;
 
 #ifdef APSARA_UNIT_TEST_MAIN
     friend class ConfigUpdatorUnittest;
@@ -146,8 +151,9 @@ public:
     virtual void Handle(const Event& event);
     virtual void HandleTimeOut();
     virtual bool DumpReaderMeta(bool isRotatorReader, bool checkConfigFlag);
+    bool IsAllFileRead() override;
 
-    ModifyHandler* GetOrCreateModifyHandler(const std::string& configName, Config* pConfig = NULL);
+    ModifyHandler* GetOrCreateModifyHandler(const std::string& configName, const FileDiscoveryConfig& pConfig);
 
 #ifdef APSARA_UNIT_TEST_MAIN
     friend class CreateModifyHandlerUnittest;

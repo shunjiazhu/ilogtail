@@ -19,7 +19,6 @@
 #include "common/Flags.h"
 #include "common/LogstoreSenderQueue.h"
 #include "sender/Sender.h"
-#include "util.h"
 #include "ulogfslib_file.h"
 
 DEFINE_FLAG_INT32(file_eliminate_interval, "time interval for file eliminating, seconds", 86400 * 2);
@@ -112,11 +111,11 @@ void LogFileCollectOffsetIndicator::RecordFileOffset(LoggroupTimeValue* data) {
                                                                      devInode,
                                                                      data->mLogGroupContext.mFuseMode,
                                                                      fd,
-                                                                     data->mLastUpdateTime);
+                                                                     data->mEnqueueTime);
         iter = mLogFileOffsetInfoMap.insert(std::make_pair(logFileInfo, logFileOffsetInfo)).first;
     }
     LogFileOffsetInfo* logFileOffsetInfo = iter->second;
-    logFileOffsetInfo->mLastUpdateTime = data->mLastUpdateTime;
+    logFileOffsetInfo->mLastUpdateTime = data->mEnqueueTime;
 
     LogFileOffsetInfoNode node(seqNum,
                                fileInfoPtr->offset,

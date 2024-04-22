@@ -172,7 +172,12 @@ func (p *ContextImp) SaveCheckPoint(key string, value []byte) error {
 }
 
 func (p *ContextImp) GetCheckPoint(key string) (value []byte, exist bool) {
-	value, err := CheckPointManager.GetCheckpoint(p.GetConfigName(), key)
+	configName := p.GetConfigName()
+	l := len(configName)
+	if l > 2 && configName[l-2:] == "/1" {
+		configName = configName[:l-2]
+	}
+	value, err := CheckPointManager.GetCheckpoint(configName, key)
 	logger.Debug(p.ctx, "get checkpoint, key", key, "value", string(value), "error", err)
 	return value, value != nil
 }

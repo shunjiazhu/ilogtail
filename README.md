@@ -71,7 +71,7 @@ Our official **User Manual** is located here:
 
 [Configuration](https://ilogtail.gitbook.io/ilogtail-docs/configuration/collection-config)
 
-[All Plugins](https://ilogtail.gitbook.io/ilogtail-docs/data-pipeline/overview)
+[All Plugins](https://ilogtail.gitbook.io/ilogtail-docs/plugins/overview)
 
 [Getting Started](https://ilogtail.gitbook.io/ilogtail-docs/awesome-ilogtail/getting-started)
 
@@ -96,7 +96,7 @@ You can report bugs, make suggestions or participate in discussions through [Git
 * Zhihu：[iLogtail社区](https://www.zhihu.com/column/c_1533139823409270785)
 * DingTalk：iLogtail社区
 
-<img src="https://ilogtail-community-edition.oss-cn-shanghai.aliyuncs.com/images/chatgroup/chatgroup_20230207.png" style="width: 50%; height: 50%" />
+<img src="https://ilogtail-community-edition.oss-cn-shanghai.aliyuncs.com/images/chatgroup/chatgroup_20240408.png" style="width: 50%; height: 50%" />
 
 ## Our Users
 
@@ -105,4 +105,3 @@ Tens of thousands of companies use iLogtail in Alibaba Cloud, IDC, or other clou
 ## Licence
 
 [Apache 2.0 License](./LICENSE)
-
