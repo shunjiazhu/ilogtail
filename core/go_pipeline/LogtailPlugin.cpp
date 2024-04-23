@@ -276,7 +276,7 @@ void LogtailPlugin::RetrieveGoPlugins() {
                 PluginRegistry::GetInstance()->RegisterGoPlugins(pluginName);
             }
 
-            free(pluginNamesChars);
+            free(const_cast<char*>(pluginNamesChars));
         } else {
             LOG_ERROR(sLogger, ("error", "Go function GetGoPlugins returned a nullptr"));
         }
