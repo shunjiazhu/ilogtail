@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -27,6 +28,7 @@ import (
 	"github.com/alibaba/ilogtail/pkg/config"
 	"github.com/alibaba/ilogtail/pkg/helper"
 	"github.com/alibaba/ilogtail/pkg/logger"
+	"github.com/alibaba/ilogtail/pkg/pipeline"
 	"github.com/alibaba/ilogtail/pkg/util"
 	"github.com/alibaba/ilogtail/plugin_main/flags"
 	"github.com/alibaba/ilogtail/pluginmanager"
@@ -262,6 +264,27 @@ func GetContainerMeta(containerID string) *C.struct_containerMeta {
 		}
 	}
 	return returnStruct
+}
+
+//export GetGoPlugins
+func GetGoPlugins() string {
+	var buffer strings.Builder
+	convertCreatorMapToString(&buffer, pipeline.MetricInputs)
+	convertCreatorMapToString(&buffer, pipeline.ServiceInputs)
+	convertCreatorMapToString(&buffer, pipeline.Processors)
+	convertCreatorMapToString(&buffer, pipeline.Aggregators)
+	convertCreatorMapToString(&buffer, pipeline.Flushers)
+	convertCreatorMapToString(&buffer, pipeline.Extensions)
+	return buffer.String()
+}
+
+func convertCreatorMapToString[T any](buffer *strings.Builder, s map[string]T) {
+	for k := range s {
+		if buffer.Len() > 0 {
+			buffer.WriteRune('|')
+		}
+		buffer.WriteString(k)
+	}
 }
 
 func initPluginBase(cfgStr string) int {

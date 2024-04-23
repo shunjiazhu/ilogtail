@@ -18,6 +18,7 @@
 #include "common/DynamicLibHelper.h"
 #include "common/LogtailCommonFlags.h"
 #include "common/TimeUtil.h"
+#include "common/StringTools.h"
 #include "config_manager/ConfigManager.h"
 #include "container_manager/DockerContainerPathCmd.h"
 #include "logger/Logger.h"
@@ -25,6 +26,7 @@
 #include "monitor/LogtailAlarm.h"
 #include "pipeline/PipelineManager.h"
 #include "sender/Sender.h"
+#include "plugin/PluginRegistry.h"
 
 DEFINE_FLAG_BOOL(enable_sls_metrics_format, "if enable format metrics in SLS metricstore log pattern", false);
 DEFINE_FLAG_BOOL(enable_containerd_upper_dir_detect,
@@ -260,6 +262,20 @@ int LogtailPlugin::SendPbV2(const char* configName,
     return Sender::Instance()->SendPb(pConfig, pbBuffer, pbSize, lines, logstore, shardHashStr) ? 0 : -1;
 }
 
+void LogtailPlugin::RetrieveGoPlugins() {
+    if (mPluginValid && mGetGoPluginsFun != nullptr) {
+        GoString pluginNamesGoString = mGetGoPluginsFun();
+        std::string pluginNamesString = std::string(pluginNamesGoString.p, pluginNamesGoString.n);
+        const std::string delim = "|";
+        auto pluginNames = SplitString(pluginNamesString, delim);
+
+        for (const auto& pluginName : pluginNames) {
+            PluginRegistry::GetInstance()->RegisterGoPlugins(pluginName);
+        }
+    }
+}
+
+
 int LogtailPlugin::ExecPluginCmd(
     const char* configName, int configNameSize, int cmdId, const char* params, int paramsLen) {
     if (cmdId < (int)PLUGIN_CMD_MIN || cmdId > (int)PLUGIN_CMD_MAX) {
@@ -416,6 +432,12 @@ bool LogtailPlugin::LoadPluginBase() {
             return mPluginValid;
         }
 
+       mGetGoPluginsFun = (GetGoPluginsFun) loader.LoadMethod("GetGoPlugins", error);
+        if (!error.empty()) {
+            LOG_ERROR(sLogger, ("load GetGoPlugins error, Message", error));
+            return mPluginValid;
+        }
+        
         mPluginBasePtr = loader.Release();
     }
 
@@ -437,6 +459,8 @@ bool LogtailPlugin::LoadPluginBase() {
         LOG_INFO(sLogger, ("Go plugin system init", "succeeded"));
         mPluginValid = true;
     }
+
+    RetrieveGoPlugins();
     return mPluginValid;
 }
 
@@ -559,3 +583,5 @@ K8sContainerMeta LogtailPlugin::GetContainerMeta(const string& containerID) {
     }
     return K8sContainerMeta();
 }
+
+

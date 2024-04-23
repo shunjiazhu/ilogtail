@@ -202,3 +202,8 @@ func TestSlowConfigWhenStop(t *testing.T) {
 	time.Sleep(time.Second * 6)
 	require.Empty(t, pluginmanager.DisabledLogtailConfig)
 }
+
+func TestPluginsNames(t *testing.T) {
+	pluginNames := GetGoPlugins()
+	fmt.Println(pluginNames)
+}
