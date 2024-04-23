@@ -275,7 +275,9 @@ func GetGoPlugins() string {
 	convertCreatorMapToString(&buffer, pipeline.Aggregators)
 	convertCreatorMapToString(&buffer, pipeline.Flushers)
 	convertCreatorMapToString(&buffer, pipeline.Extensions)
-	return buffer.String()
+	res := buffer.String()
+	fmt.Println("GetGoPlugins:", res)
+	return res
 }
 
 func convertCreatorMapToString[T any](buffer *strings.Builder, s map[string]T) {
