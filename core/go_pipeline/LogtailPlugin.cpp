@@ -264,14 +264,21 @@ int LogtailPlugin::SendPbV2(const char* configName,
 
 void LogtailPlugin::RetrieveGoPlugins() {
     if (mPluginValid && mGetGoPluginsFun != nullptr) {
-        GoString pluginNamesGoString = mGetGoPluginsFun();
-        std::string pluginNamesString = std::string(pluginNamesGoString.p, pluginNamesGoString.n);
-        LOG_WARNING(sLogger, ("plugin names", pluginNamesString));
-        const std::string delim = "|";
-        auto pluginNames = SplitString(pluginNamesString, delim);
+        auto pluginNamesChars = mGetGoPluginsFun();
 
-        for (const auto& pluginName : pluginNames) {
-            PluginRegistry::GetInstance()->RegisterGoPlugins(pluginName);
+        if (pluginNamesChars) {
+            std::string pluginNamesString = std::string(pluginNamesChars);
+            LOG_DEBUG(sLogger, ("plugin names", pluginNamesString));
+            const std::string delim = "|";
+            auto pluginNames = SplitString(pluginNamesString, delim);
+
+            for (const auto& pluginName : pluginNames) {
+                PluginRegistry::GetInstance()->RegisterGoPlugins(pluginName);
+            }
+
+            free(pluginNamesChars);
+        } else {
+            LOG_ERROR(sLogger, ("error", "Go function GetGoPlugins returned a nullptr"));
         }
     }
 }
