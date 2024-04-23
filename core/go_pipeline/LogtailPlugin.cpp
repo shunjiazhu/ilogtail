@@ -266,6 +266,7 @@ void LogtailPlugin::RetrieveGoPlugins() {
     if (mPluginValid && mGetGoPluginsFun != nullptr) {
         GoString pluginNamesGoString = mGetGoPluginsFun();
         std::string pluginNamesString = std::string(pluginNamesGoString.p, pluginNamesGoString.n);
+        LOG_DEBUG(sLogger, ("plugin names", pluginNamesString));
         const std::string delim = "|";
         auto pluginNames = SplitString(pluginNamesString, delim);
 
