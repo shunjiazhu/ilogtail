@@ -362,6 +362,7 @@ void LoadEnvValueIfExisting(const char* envKey, T& cfgValue) {
 }
 
 void AppConfig::LoadEnvResourceLimit() {
+    LoadSingleValueEnvConfig("load_plugin_base", mLoadPluginBase, false);
     LoadSingleValueEnvConfig("cpu_usage_limit", mCpuUsageUpLimit, (float)0.4);
     LoadSingleValueEnvConfig("mem_usage_limit", mMemUsageUpLimit, (int64_t)384);
     LoadSingleValueEnvConfig("max_bytes_per_sec", mMaxBytePerSec, (int32_t)(1024 * 1024));
@@ -517,6 +518,10 @@ void AppConfig::LoadResourceConf(const Json::Value& confJson) {
     if ((mMemUsageUpLimit == 80 || mMemUsageUpLimit == 100)
         && mMemUsageUpLimit < INT64_FLAG(pub_memory_usage_up_limit)) {
         mMemUsageUpLimit = INT64_FLAG(pub_memory_usage_up_limit);
+    }
+
+    if (confJson.isMember("load_plugin_base") && confJson["load_plugin_base"].isBool()) {
+        mLoadPluginBase = confJson["load_plugin_base"].asBool();
     }
 
     if (confJson.isMember("resource_auto_scale") && confJson["resource_auto_scale"].isBool())

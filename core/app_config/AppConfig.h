@@ -69,6 +69,7 @@ private:
     bool mResourceAutoScale;
     float mMachineCpuUsageThreshold;
     float mScaledCpuUsageUpLimit;
+    bool mLoadPluginBase;
 
     // sender
     int32_t mMaxHoldedDataSize;
@@ -304,6 +305,8 @@ public:
     float GetScaledCpuUsageUpLimit() const { return mScaledCpuUsageUpLimit; }
 
     float GetCpuUsageUpLimit() const { return mCpuUsageUpLimit; }
+
+    bool IsLoadPluginBase() const { return mLoadPluginBase; }
 
     int64_t GetMemUsageUpLimit() const { return mMemUsageUpLimit; }
 

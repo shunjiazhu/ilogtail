@@ -269,25 +269,14 @@ func GetContainerMeta(containerID string) *C.struct_containerMeta {
 //export GetGoPlugins
 func GetGoPlugins() *C.char {
 	var buffer strings.Builder
-	convertCreatorMapToString(&buffer, pipeline.MetricInputs)
-	convertCreatorMapToString(&buffer, pipeline.ServiceInputs)
-	convertCreatorMapToString(&buffer, pipeline.Processors)
-	convertCreatorMapToString(&buffer, pipeline.Aggregators)
-	convertCreatorMapToString(&buffer, pipeline.Flushers)
-	convertCreatorMapToString(&buffer, pipeline.Extensions)
+	helper.ConvertCreatorMapToString(&buffer, pipeline.MetricInputs)
+	helper.ConvertCreatorMapToString(&buffer, pipeline.ServiceInputs)
+	helper.ConvertCreatorMapToString(&buffer, pipeline.Processors)
+	helper.ConvertCreatorMapToString(&buffer, pipeline.Aggregators)
+	helper.ConvertCreatorMapToString(&buffer, pipeline.Flushers)
+	helper.ConvertCreatorMapToString(&buffer, pipeline.Extensions)
 	res := buffer.String()
-	fmt.Println("GetGoPlugins:", res)
-
 	return C.CString(res)
-}
-
-func convertCreatorMapToString[T any](buffer *strings.Builder, s map[string]T) {
-	for k := range s {
-		if buffer.Len() > 0 {
-			buffer.WriteRune('|')
-		}
-		buffer.WriteString(k)
-	}
 }
 
 func initPluginBase(cfgStr string) int {

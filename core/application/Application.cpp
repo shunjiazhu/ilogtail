@@ -212,6 +212,12 @@ void Application::Start() {
 
     PluginRegistry::GetInstance()->LoadPlugins();
 
+
+    // if load_plugin_base is marked as true, force load the plugin base.
+    if (AppConfig::GetInstance()->IsLoadPluginBase()) {
+        LogtailPlugin::GetInstance()->LoadPluginBase();
+    }
+
 #if defined(__ENTERPRISE__) && defined(__linux__) && !defined(__ANDROID__)
     if (AppConfig::GetInstance()->ShennongSocketEnabled()) {
         ShennongManager::GetInstance()->Init();
