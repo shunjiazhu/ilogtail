@@ -284,10 +284,7 @@ void LogtailPlugin::RetrieveGoPlugins() {
     }
 }
 
-<<<<<<< HEAD
 
-=======
->>>>>>> fix/external-plugins
 int LogtailPlugin::ExecPluginCmd(
     const char* configName, int configNameSize, int cmdId, const char* params, int paramsLen) {
     if (cmdId < (int)PLUGIN_CMD_MIN || cmdId > (int)PLUGIN_CMD_MAX) {
