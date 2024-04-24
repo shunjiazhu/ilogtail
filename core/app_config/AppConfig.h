@@ -306,8 +306,6 @@ public:
 
     float GetCpuUsageUpLimit() const { return mCpuUsageUpLimit; }
 
-    bool IsLoadPluginBase() const { return mLoadPluginBase; }
-
     int64_t GetMemUsageUpLimit() const { return mMemUsageUpLimit; }
 
     bool IsLoadPluginBase() const { return mLoadPluginBase; }
