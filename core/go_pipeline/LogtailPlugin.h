@@ -221,8 +221,6 @@ public:
                     const std::string& tags);
 
     void ProcessLogGroup(const std::string& configName, sls_logs::LogGroup& logGroup, const std::string& packId);
-
-    void RetrieveGoPlugins();
     
     static int IsValidToSend(long long logstoreKey);
 
