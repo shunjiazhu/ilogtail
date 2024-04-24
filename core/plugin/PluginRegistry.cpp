@@ -211,7 +211,6 @@ void PluginRegistry::UnloadPlugins() {
     mPluginDict.clear();
 }
 
-
 void PluginRegistry::RegisterGoPlugins(const std::string& goPluginName) {
     // insert the go plugin name into the mGoPlugins set
     mGoPlugins.insert(goPluginName);

@@ -249,6 +249,8 @@ public:
 
     K8sContainerMeta GetContainerMeta(const std::string& containerID);
 
+    void RetrieveGoPlugins();
+
 private:
     void* mPluginBasePtr;
     void* mPluginAdapterPtr;

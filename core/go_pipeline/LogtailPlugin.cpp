@@ -17,6 +17,7 @@
 #include "app_config/AppConfig.h"
 #include "common/DynamicLibHelper.h"
 #include "common/LogtailCommonFlags.h"
+#include "common/StringTools.h"
 #include "common/TimeUtil.h"
 #include "common/StringTools.h"
 #include "config_manager/ConfigManager.h"
@@ -283,7 +284,10 @@ void LogtailPlugin::RetrieveGoPlugins() {
     }
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> fix/external-plugins
 int LogtailPlugin::ExecPluginCmd(
     const char* configName, int configNameSize, int cmdId, const char* params, int paramsLen) {
     if (cmdId < (int)PLUGIN_CMD_MIN || cmdId > (int)PLUGIN_CMD_MAX) {
@@ -440,12 +444,13 @@ bool LogtailPlugin::LoadPluginBase() {
             return mPluginValid;
         }
 
-       mGetGoPluginsFun = (GetGoPluginsFun) loader.LoadMethod("GetGoPlugins", error);
+
+        mGetGoPluginsFun = (GetGoPluginsFun) loader.LoadMethod("GetGoPlugins", error);
         if (!error.empty()) {
             LOG_ERROR(sLogger, ("load GetGoPlugins error, Message", error));
             return mPluginValid;
         }
-        
+
         mPluginBasePtr = loader.Release();
     }
 

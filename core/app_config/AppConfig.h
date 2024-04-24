@@ -310,6 +310,8 @@ public:
 
     int64_t GetMemUsageUpLimit() const { return mMemUsageUpLimit; }
 
+    bool IsLoadPluginBase() const { return mLoadPluginBase; }
+
     int32_t GetMaxHoldedDataSize() const { return mMaxHoldedDataSize; }
 
     uint32_t GetMaxBufferNum() const { return mMaxBufferNum; }
