@@ -54,8 +54,8 @@
 #include "streamlog/StreamLogManager.h"
 #endif
 #else
-#include "config/provider/CommonConfigProvider.h"
-#include "config/provider/LegacyCommonConfigProvider.h"
+#include "config/common_provider/CommonConfigProvider.h"
+#include "config/legacy_provider/LegacyCommonConfigProvider.h"
 #endif
 #include "queue/ExactlyOnceQueueManager.h"
 
