@@ -130,9 +130,8 @@ foreach (DIR_NAME ${SUB_DIRECTORIES_LIST})
 endforeach (DIR_NAME)
 
 
-if(NOT CONFIG_PROVIDER_PATH STREQUAL "")  # add common config provider implementation if path is not empty.
-    add_subdirectory("${CONFIG_PROVIDER_PATH}" "${CMAKE_BINARY_DIR}/config/common_provider")
-endif()
+# add common config provider implementation
+add_subdirectory("${CONFIG_PROVIDER_PATH}" "${CMAKE_BINARY_DIR}/config/common_provider")
 
 # Logtail executable.
 if (BUILD_LOGTAIL)
