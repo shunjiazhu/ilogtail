@@ -54,10 +54,11 @@
 #include "streamlog/StreamLogManager.h"
 #endif
 #else
-#include "config/common_provider/CommonConfigProvider.h"
+#include "provider/provider.h"
 #include "config/legacy_provider/LegacyCommonConfigProvider.h"
 #endif
 #include "queue/ExactlyOnceQueueManager.h"
+
 
 DEFINE_FLAG_BOOL(ilogtail_disable_core, "disable core in worker process", true);
 DEFINE_FLAG_STRING(ilogtail_config_env_name, "config file path", "ALIYUN_LOGTAIL_CONFIG");
@@ -210,7 +211,7 @@ void Application::Start() {
     EnterpriseConfigProvider::GetInstance()->Init("enterprise");
     LegacyConfigProvider::GetInstance()->Init("legacy");
 #else
-    CommonConfigProvider::GetInstance()->Init("common");
+    GetRemoteConfigProvider()->Init("common");
     LegacyCommonConfigProvider::GetInstance()->Init("legacy");
 #endif
 
@@ -331,7 +332,7 @@ void Application::Exit() {
     EnterpriseConfigProvider::GetInstance()->Stop();
     LegacyConfigProvider::GetInstance()->Stop();
 #else
-    CommonConfigProvider::GetInstance()->Stop();
+    GetRemoteConfigProvider()->Stop();
     LegacyCommonConfigProvider::GetInstance()->Stop();
 #endif
 

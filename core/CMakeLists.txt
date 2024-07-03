@@ -42,6 +42,7 @@ else ()
     include(${CMAKE_CURRENT_SOURCE_DIR}/options.cmake)
 endif ()
 
+
 if (WITHOUTSPL)
     add_definitions(-D__EXCLUDE_SPL__)
 endif()
@@ -82,7 +83,8 @@ if (ANDROID OR CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-DLOGTAIL_NO_TC_MALLOC)
 endif ()
 
-set(CONFIG_PROVIDER_PATH "config/common_provider" CACHE PATH "config provider dir")
+set(PROVIDER_PATH "provider" CACHE PATH "provder dir")
+
 
 # Dependencies.
 include(${CMAKE_CURRENT_SOURCE_DIR}/utils.cmake)
@@ -91,7 +93,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies.cmake)
 # Subdirectories (modules).
 set(SUB_DIRECTORIES_LIST
         batch application app_config checkpoint common compression 
-        config config/provider config/legacy_provider 
+        config config/provider config/legacy_provider  config/common_provider
         config/watcher config_manager config_server_pb 
         container_manager controller event event_handler event_listener file_server flusher go_pipeline helper input log_pb logger 
         models monitor parser pipeline plugin plugin/creator plugin/instance plugin/interface polling processor processor/daemon processor/inner
@@ -130,8 +132,9 @@ foreach (DIR_NAME ${SUB_DIRECTORIES_LIST})
 endforeach (DIR_NAME)
 
 
-# add common config provider implementation
-add_subdirectory("${CONFIG_PROVIDER_PATH}" "${CMAKE_BINARY_DIR}/config/common_provider")
+# add provider 
+add_subdirectory("${PROVIDER_PATH}" "${CMAKE_BINARY_DIR}/provider")
+
 
 # Logtail executable.
 if (BUILD_LOGTAIL)

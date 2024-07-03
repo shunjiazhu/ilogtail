@@ -30,6 +30,8 @@ namespace logtail {
 
 class CommonConfigProvider : public ConfigProvider {
 public:
+    CommonConfigProvider() = default;
+    ~CommonConfigProvider() = default;
     CommonConfigProvider(const CommonConfigProvider&) = delete;
     CommonConfigProvider& operator=(const CommonConfigProvider&) = delete;
 
@@ -49,10 +51,7 @@ private:
 
         std::string host;
         std::int32_t port;
-    };
-
-    CommonConfigProvider() = default;
-    ~CommonConfigProvider() = default;
+    };        
 
     ConfigServerAddress GetOneConfigServerAddress(bool changeConfigServer);
     const std::vector<std::string>& GetConfigServerTags() const { return mConfigServerTags; }
@@ -80,6 +79,62 @@ private:
     mutable std::condition_variable mStopCV;
     std::unordered_map<std::string, int64_t> mConfigNameVersionMap;
     bool mConfigServerAvailable = false;
+};
+
+class CommonConfigProviderV2 : public ConfigProvider {
+public:
+    CommonConfigProviderV2(const CommonConfigProviderV2&) = delete;
+    CommonConfigProviderV2& operator=(const CommonConfigProviderV2&) = delete;
+
+    static CommonConfigProviderV2* GetInstance() {
+        static CommonConfigProviderV2 instance;
+        return &instance;
+    }
+
+    void Init(const std::string& dir) override;
+    void Stop() override;
+
+private:
+    struct ConfigServerAddress {
+        ConfigServerAddress() = default;
+        ConfigServerAddress(const std::string& config_server_host, const std::int32_t& config_server_port)
+            : host(config_server_host), port(config_server_port) {}
+
+        std::string host;
+        std::int32_t port;
+    };
+
+    CommonConfigProviderV2() = default;
+    ~CommonConfigProviderV2() = default;
+
+    ConfigServerAddress GetOneConfigServerAddress(bool changeConfigServer);
+    const std::vector<std::string>& GetConfigServerTags() const { return mConfigServerTags; }
+
+    void CheckUpdateThread();
+    void GetConfigUpdate();
+    bool GetConfigServerAvailable() { return mConfigServerAvailable; }
+    void StopUsingConfigServer() { mConfigServerAvailable = false; }
+    google::protobuf::RepeatedPtrField<configserver::proto::ConfigCheckResult>
+    SendHeartbeat(const ConfigServerAddress& configServerAddress);
+    google::protobuf::RepeatedPtrField<configserver::proto::ConfigDetail> FetchPipelineConfig(
+        const ConfigServerAddress& configServerAddress,
+        const google::protobuf::RepeatedPtrField<configserver::proto::ConfigCheckResult>& requestConfigs);
+    void
+    UpdateRemoteConfig(const google::protobuf::RepeatedPtrField<configserver::proto::ConfigCheckResult>& checkResults,
+                       const google::protobuf::RepeatedPtrField<configserver::proto::ConfigDetail>& configDetails);
+
+    std::vector<ConfigServerAddress> mConfigServerAddresses;
+    int mConfigServerAddressId = 0;
+    std::vector<std::string> mConfigServerTags;
+
+    std::future<void> mThreadRes;
+    mutable std::mutex mThreadRunningMux;
+    bool mIsThreadRunning = true;
+    mutable std::condition_variable mStopCV;
+    std::unordered_map<std::string, int64_t> mConfigNameVersionMap;
+    bool mConfigServerAvailable = false;
+
+    bool needReportFullState = false;
 };
 
 } // namespace logtail
