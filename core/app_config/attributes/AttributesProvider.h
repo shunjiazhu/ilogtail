@@ -16,20 +16,19 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 
 namespace logtail {
 
 class AttributesProvider {
 public:
     AttributesProvider() = default;
-    ~AttributesProvider() = default;
+    virtual ~AttributesProvider() = default;
     
-    const std::map<std::string, std::string>& GetAttributeMap();
-    bool IsAttributesChanged();
-
+    const std::unordered_map<std::string, std::string>& GetAttributesMap();   
 private:
-    std::map<std::string, std::string> localCache;
+    int lastReadTimestamp;
+    std::unordered_map<std::string, std::string> localCache;
 };
 
 } // namespace ilogtail

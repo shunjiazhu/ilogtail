@@ -19,14 +19,9 @@
 
 namespace logtail {
 
-const std::map<std::string, std::string>& AttributesProvider::GetAttributeMap() {
+const std::unordered_map<std::string, std::string>& AttributesProvider::GetAttributesMap() {
+    // TODO: Please implement the logic of getting attributes from files.
     return localCache;
 }
-
-
-bool AttributesProvider::IsAttributesChanged() {
-    return false;
-}
-
 }
 
