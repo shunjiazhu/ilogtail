@@ -321,10 +321,10 @@ bool LogtailMonitor::SendStatusProfile(bool suicide) {
         }
 
         if (i == allProfileRegion.size() - 1) {
-            GetProfileSenderProvider()()->SendToProfileProject(allProfileRegion[i], logGroup);
+            GetProfileSenderProvider()->SendToProfileProject(allProfileRegion[i], logGroup);
         } else {
             LogGroup copyLogGroup = logGroup;
-            GetProfileSenderProvider()()->SendToProfileProject(allProfileRegion[i], copyLogGroup);
+            GetProfileSenderProvider()->SendToProfileProject(allProfileRegion[i], copyLogGroup);
         }
     }
     return true;
