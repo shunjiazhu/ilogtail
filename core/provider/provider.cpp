@@ -30,8 +30,7 @@ ConfigProvider* GetRemoteConfigProvider() {
 };
 
 ProfileSender* GetProfileSenderProvider() {
-    static ProfileSender instance;
-    return &instance;
-}
+    return ProfileSender::GetInstance();
+};
 
 } // namespace logtail

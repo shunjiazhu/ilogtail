@@ -183,7 +183,7 @@ void LogLineCount::SendLineCountData(bool forceSend) {
             logTagPtr->set_key("ip");
             logTagPtr->set_value(LogFileProfiler::mIpAddr);
 
-            ProfileSender::GetInstance()->SendToLineCountProject(region, lineCountProject, logGroup);
+            GetProfileSenderProvider()->SendToLineCountProject(region, lineCountProject, logGroup);
             LOG_DEBUG(
                 sLogger,
                 ("send line count data, region", region)("project", lineCountProject)("log store", lineCountLogStore));
