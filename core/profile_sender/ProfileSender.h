@@ -35,12 +35,11 @@ protected:
     std::string mDefaultProfileRegion;
     std::unordered_map<std::string, std::string> mAllProfileProjectNames;
 
-    ProfileSender();
-    virtual ~ProfileSender() = default;
-
 public:
     ProfileSender(const ProfileSender&) = delete;
     ProfileSender& operator=(const ProfileSender&) = delete;
+    ProfileSender();
+    virtual ~ProfileSender() = default;
 
     static ProfileSender* GetInstance();
 

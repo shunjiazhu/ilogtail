@@ -19,9 +19,19 @@
 
 namespace logtail {
 
+AttributesProvider* GetAttributesProvider() {
+    static AttributesProvider instance;
+    return &instance;
+};
+
 ConfigProvider* GetRemoteConfigProvider() {
     static  CommonConfigProvider instance;
     return &instance;
 };
+
+ProfileSender* GetProfileSenderProvider() {
+    static ProfileSender instance;
+    return &instance;
+}
 
 } // namespace logtail

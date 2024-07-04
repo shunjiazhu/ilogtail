@@ -1,4 +1,4 @@
-# Copyright 2024 iLogtail Authors
+# Copyright 2022 iLogtail Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +13,9 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.22)
-project(provider)
+project(config_server_pb_v2)
 
-file(GLOB LIB_SOURCE_FILES *.cpp *.h)
+file(GLOB LIB_SOURCE_FILES *.cc *.h *.cpp)
 append_source_files(LIB_SOURCE_FILES)
 add_library(${PROJECT_NAME} STATIC ${LIB_SOURCE_FILES})
-target_link_libraries(${PROJECT_NAME} attributes_provider)
-target_link_libraries(${PROJECT_NAME} config_provider)
-target_link_libraries(${PROJECT_NAME} common_config_provider)
-target_link_libraries(${PROJECT_NAME} profile_sender)
-link_boost(${PROJECT_NAME})
-if (ENABLE_ENTERPRISE)
-    target_link_libraries(${PROJECT_NAME} config_sdk)
-else()
-    target_link_libraries(${PROJECT_NAME} config_server_pb)
-endif ()
+link_protobuf(${PROJECT_NAME})

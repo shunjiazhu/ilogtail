@@ -92,9 +92,9 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies.cmake)
 
 # Subdirectories (modules).
 set(SUB_DIRECTORIES_LIST
-        batch application app_config checkpoint common compression 
+        batch application app_config app_config/attributes checkpoint common compression 
         config config/provider config/legacy_provider  config/common_provider
-        config/watcher config_manager config_server_pb 
+        config/watcher config_manager config_server_pb config_server_pb_v2
         container_manager controller event event_handler event_listener file_server flusher go_pipeline helper input log_pb logger 
         models monitor parser pipeline plugin plugin/creator plugin/instance plugin/interface polling processor processor/daemon processor/inner
         profile_sender queue reader sdk sender serializer sls_control fuse

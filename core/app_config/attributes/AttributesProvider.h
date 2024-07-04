@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,19 +16,21 @@
 
 #pragma once
 
-#include "app_config/attributes/AttributesProvider.h"
-#include "config/provider/ConfigProvider.h"
-#include "profile_sender/ProfileSender.h"
+#include <map>
 
 namespace logtail {
 
-// GetAttributesProvider returns an AttributesProvider.
-AttributesProvider* GetAttributesProvider();
-
-
-ConfigProvider* GetRemoteConfigProvider();
-
-
-ProfileSender* GetProfileSenderProvider();
+class AttributesProvider {
+public:
+    AttributesProvider() = default;
+    ~AttributesProvider() = default;
     
-} // namespace logtail
+    const std::map<std::string, std::string>& GetAttributeMap();
+    bool IsAttributesChanged();
+
+private:
+    std::map<std::string, std::string> localCache;
+};
+
+} // namespace ilogtail
+
