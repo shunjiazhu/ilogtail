@@ -709,16 +709,6 @@ func (f *FlusherHTTP) buildSelfMonitorMetricLabels() []pipeline.LabelPair {
 	return labels
 }
 
-func (f *FlusherHTTP) getInsensitiveMap(info map[string]string) map[string]string {
-	res := make(map[string]string, len(info))
-	for k, v := range info {
-		if !isSensitiveKey(k) {
-			res[k] = v
-		}
-	}
-	return res
-}
-
 var sensitiveLabels = []string{"u", "user", "username", "p", "password", "passwd", "pwd", "Authorization"}
 
 func isSensitiveKey(label string) bool {
