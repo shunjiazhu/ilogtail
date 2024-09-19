@@ -20,8 +20,8 @@
 #include <deque>
 #include "protobuf/sls/sls_logs.pb.h"
 #include "interface/helper.h"
-#include "LogtailAlarm.h"
 #include "metas/ServiceMetaCache.h"
+#include "monitor/LogtailAlarm.h"
 #include "Logger.h"
 #include <unordered_map>
 #include <ostream>

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "EncodingConverter.h"
-#include "LogtailAlarm.h"
+#include "monitor/LogtailAlarm.h"
 #include "logger/Logger.h"
 #if defined(__linux__)
 #include <iconv.h>

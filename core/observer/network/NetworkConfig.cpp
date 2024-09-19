@@ -14,7 +14,7 @@
 
 #include "NetworkConfig.h"
 #include <sstream>
-#include "LogtailAlarm.h"
+#include "monitor/LogtailAlarm.h"
 #include "logger/Logger.h"
 #include <json/json.h>
 #include "common/JsonUtil.h"

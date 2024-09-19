@@ -45,8 +45,10 @@ public:
 
     bool IsProfileData(const std::string& region, const std::string& project, const std::string& logstore);
 
+
     virtual void SendToProfileProject(const std::string& region, sls_logs::LogGroup& logGroup);
 
+    virtual void SendMetricCountent(const std::string& content){}
 protected:
     ProfileSender();
     ~ProfileSender() = default;

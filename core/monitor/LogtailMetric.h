@@ -155,13 +155,14 @@ public:
 };
 
 class ReadMetrics {
-private:
-    ReadMetrics() = default;
+private:    
+
+protected:
     mutable ReadWriteLock mReadWriteLock;
     MetricsRecord* mHead = nullptr;
+    ReadMetrics() = default;
     void Clear();
     MetricsRecord* GetHead();
-
 public:
     ~ReadMetrics();
     static ReadMetrics* GetInstance() {
@@ -169,7 +170,7 @@ public:
         return ptr;
     }
     void ReadAsLogGroup(std::map<std::string, sls_logs::LogGroup*>& logGroupMap) const;
-    void ReadAsFileBuffer(std::string& metricsContent) const;
+    virtual void ReadAsFileBuffer(std::string& metricsContent) const;
     void UpdateMetrics();
 
 #ifdef APSARA_UNIT_TEST_MAIN

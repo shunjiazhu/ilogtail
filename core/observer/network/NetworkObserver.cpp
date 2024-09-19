@@ -16,9 +16,9 @@
 
 #include "Constants.h"
 #include "FileSystemUtil.h"
-#include "LogFileProfiler.h"
+#include "monitor/LogFileProfiler.h"
 #include "MachineInfoUtil.h"
-#include "Monitor.h"
+#include "monitor/Monitor.h"
 #include "ProcessObserver.h"
 #include "common/LogtailCommonFlags.h"
 #include "go_pipeline/LogtailPlugin.h"

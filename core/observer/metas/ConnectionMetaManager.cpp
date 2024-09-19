@@ -21,7 +21,7 @@
 #include "FileSystemUtil.h"
 #include "Logger.h"
 #include <netinet/in.h>
-#include "LogtailAlarm.h"
+#include "monitor/LogtailAlarm.h"
 #include "MachineInfoUtil.h"
 #include "DynamicLibHelper.h"
 
