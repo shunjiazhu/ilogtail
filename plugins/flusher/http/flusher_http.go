@@ -24,7 +24,10 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/snappy"
@@ -58,6 +61,10 @@ var supportedCompressionType = map[string]any{
 	"gzip":   nil,
 	"snappy": nil,
 }
+
+var (
+	flusherID = int64(0) // http flusher id that starts from 0
+)
 
 type retryConfig struct {
 	Enable        bool          // If enable retry, default is true
@@ -101,6 +108,15 @@ type FlusherHTTP struct {
 
 	queue   chan interface{}
 	counter sync.WaitGroup
+
+	// self-monitor metrics
+	matchedEvents        pipeline.CounterMetric                        // The number of events that have been matched by the FlushInterceptor
+	unmatchedEvents      pipeline.CounterMetric                        // The number of events that have not been matched by the FlushInterceptor
+	droppedEvents        pipeline.CounterMetric                        // The number of events that have been dropped because the queue is full (data is discarded).
+	retryCount           pipeline.CounterMetric                        // The number of times the request has been retried
+	flushFailure         pipeline.CounterMetric                        // The number of times the request has failed (data is discarded).
+	flushLatency         pipeline.CounterMetric                        // The average time it takes to send the request
+	statusCodeStatistics pipeline.MetricVector[pipeline.CounterMetric] // The number of status code returned by the server
 }
 
 func NewHTTPFlusher() *FlusherHTTP {
@@ -184,6 +200,18 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	f.buildVarKeys()
 	f.fillRequestContentType()
 
+	metricLabels := f.buildSelfMonitorMetricLabels()
+	metricsRecord := f.context.RegisterMetricRecord(metricLabels)
+	f.matchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_matched_events")
+	f.unmatchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_unmatched_events")
+	f.droppedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_dropped_events")
+	f.retryCount = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_retry_count")
+	f.flushFailure = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_flush_failure_count")
+	f.flushLatency = helper.NewAverageMetricAndRegister(metricsRecord, "http_flusher_flush_latency_ns")
+
+	f.statusCodeStatistics = helper.NewCounterMetricVectorAndRegister(
+		metricsRecord, "http_flusher_status_code_count", nil, []string{"status_code"})
+
 	logger.Info(f.context.GetRuntimeContext(), "http flusher init", "initialized",
 		"timeout", f.Timeout,
 		"compression", f.Compression)
@@ -200,7 +228,9 @@ func (f *FlusherHTTP) Flush(projectName string, logstoreName string, configName 
 func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx pipeline.PipelineContext) error {
 	for _, groupEvents := range groupEventsArray {
 		if !f.AsyncIntercept && f.interceptor != nil {
+			originCount := int64(len(groupEvents.Events))
 			groupEvents = f.interceptor.Intercept(groupEvents)
+			f.unmatchedEvents.Add(getInterceptedEventCount(originCount, groupEvents))
 			// skip groupEvents that is nil or empty.
 			if groupEvents == nil || len(groupEvents.Events) == 0 {
 				continue
@@ -357,12 +387,29 @@ func (f *FlusherHTTP) addTask(log interface{}) {
 		select {
 		case f.queue <- log:
 		default:
-			f.counter.Done()
-			logger.Warningf(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher dropped a group event since the queue is full")
+			f.handleDroppedEvent(log)
 		}
 	} else {
 		f.queue <- log
 	}
+}
+
+// handleDroppedEvent handles a dropped event and reports metrics.
+func (f *FlusherHTTP) handleDroppedEvent(log interface{}) {
+	f.counter.Done()
+
+	// Update the dropped events counter based on the type of the log.
+	switch v := log.(type) {
+	case *protocol.LogGroup:
+		if v != nil {
+			f.droppedEvents.Add(int64(len(v.Logs)))
+		}
+	case *models.PipelineGroupEvents:
+		if v != nil {
+			f.droppedEvents.Add(int64(len(v.Events)))
+		}
+	}
+	logger.Warningf(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher dropped a group event since the queue is full")
 }
 
 func (f *FlusherHTTP) countDownTask() {
@@ -423,11 +470,14 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFields(v, f.varKeys)
 	case *models.PipelineGroupEvents:
 		if f.AsyncIntercept && f.interceptor != nil {
+			originCount := int64(len(v.Events))
 			v = f.interceptor.Intercept(v)
+			f.unmatchedEvents.Add(getInterceptedEventCount(originCount, v))
 			if v == nil || len(v.Events) == 0 {
 				return nil
 			}
 		}
+		f.matchedEvents.Add(int64(len(v.Events)))
 		logs, varValues, err = f.converter.ToByteStreamWithSelectedFieldsV2(v, f.varKeys)
 	default:
 		return fmt.Errorf("unsupport data type")
@@ -443,6 +493,7 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 			body, values := data, varValues[idx]
 			err = f.flushWithRetry(body, values)
 			if err != nil {
+				f.flushFailure.Add(1)
 				logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, data dropped, error", err)
 			}
 		}
@@ -450,6 +501,7 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 	case []byte:
 		err = f.flushWithRetry(rows, nil)
 		if err != nil {
+			f.flushFailure.Add(1)
 			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher failed flush data after retry, error", err)
 		}
 		return err
@@ -463,7 +515,12 @@ func (f *FlusherHTTP) convertAndFlush(data interface{}) error {
 func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) error {
 	var err error
 	for i := 0; i <= f.Retry.MaxRetryTimes; i++ {
+		if i > 0 { // first flush is not retry
+			f.retryCount.Add(1)
+		}
+		start := time.Now()
 		ok, retryable, e := f.flush(data, varValues)
+		f.flushLatency.Add(time.Since(start).Nanoseconds())
 		if ok || !retryable || !f.Retry.Enable {
 			err = e
 			break
@@ -582,6 +639,9 @@ func (f *FlusherHTTP) flush(data []byte, varValues map[string]string) (ok, retry
 		logger.Warning(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM", "http flusher close response body fail, error", err)
 		return false, false, err
 	}
+
+	f.statusCodeStatistics.WithLabels(pipeline.Label{Key: "status_code", Value: strconv.Itoa(response.StatusCode)}).Add(1)
+
 	switch response.StatusCode / 100 {
 	case 2:
 		return true, false, nil
@@ -641,6 +701,47 @@ func (f *FlusherHTTP) fillRequestContentType() {
 		contentType = defaultContentType
 	}
 	f.Headers[contentTypeHeader] = contentType
+}
+
+func (f *FlusherHTTP) buildSelfMonitorMetricLabels() []pipeline.LabelPair {
+	id := atomic.AddInt64(&flusherID, 1) - 1
+	labels := make([]pipeline.LabelPair, 0, len(f.Query)+2)
+	labels = append(labels, pipeline.LabelPair{Key: "RemoteURL", Value: f.RemoteURL})
+	for k, v := range f.Query {
+		if !isSensitiveKey(k) {
+			labels = append(labels, pipeline.LabelPair{Key: k, Value: v})
+		}
+	}
+	labels = append(labels, pipeline.LabelPair{Key: "flusher_http_id", Value: strconv.FormatInt(id, 10)})
+	return labels
+}
+
+func (f *FlusherHTTP) getInsensitiveMap(info map[string]string) map[string]string {
+	res := make(map[string]string, len(info))
+	for k, v := range info {
+		if !isSensitiveKey(k) {
+			res[k] = v
+		}
+	}
+	return res
+}
+
+var sensitiveLabels = []string{"u", "user", "username", "p", "password", "passwd", "pwd", "Authorization"}
+
+func isSensitiveKey(label string) bool {
+	for _, sensitiveKey := range sensitiveLabels {
+		if strings.ToLower(label) == sensitiveKey {
+			return true
+		}
+	}
+	return false
+}
+
+func getInterceptedEventCount(origin int64, group *models.PipelineGroupEvents) int64 {
+	if group == nil {
+		return origin
+	}
+	return origin - int64(len(group.Events))
 }
 
 func init() {
