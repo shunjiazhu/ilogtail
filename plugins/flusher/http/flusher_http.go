@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/golang/snappy"
@@ -61,10 +60,6 @@ var supportedCompressionType = map[string]any{
 	"gzip":   nil,
 	"snappy": nil,
 }
-
-var (
-	flusherID = int64(0) // http flusher id that starts from 0
-)
 
 type retryConfig struct {
 	Enable        bool          // If enable retry, default is true
@@ -704,15 +699,13 @@ func (f *FlusherHTTP) fillRequestContentType() {
 }
 
 func (f *FlusherHTTP) buildSelfMonitorMetricLabels() []pipeline.LabelPair {
-	id := atomic.AddInt64(&flusherID, 1) - 1
-	labels := make([]pipeline.LabelPair, 0, len(f.Query)+2)
+	labels := make([]pipeline.LabelPair, 0, len(f.Query)+1)
 	labels = append(labels, pipeline.LabelPair{Key: "RemoteURL", Value: f.RemoteURL})
 	for k, v := range f.Query {
 		if !isSensitiveKey(k) {
 			labels = append(labels, pipeline.LabelPair{Key: k, Value: v})
 		}
 	}
-	labels = append(labels, pipeline.LabelPair{Key: "flusher_http_id", Value: strconv.FormatInt(id, 10)})
 	return labels
 }
 

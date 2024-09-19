@@ -1024,6 +1024,12 @@ type mockContext struct {
 	interceptor *mockInterceptor
 }
 
+func (c mockContext) RegisterMetricRecord(labels []pipeline.LabelPair) *pipeline.MetricsRecord {
+	return &pipeline.MetricsRecord{
+		Labels: labels,
+	}
+}
+
 func (c mockContext) GetExtension(name string, cfg any) (pipeline.Extension, error) {
 	if c.basicAuth != nil {
 		return c.basicAuth, nil
