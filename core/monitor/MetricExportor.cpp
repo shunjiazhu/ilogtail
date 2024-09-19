@@ -165,9 +165,12 @@ void MetricExportor::PushGoDirectMetrics(std::vector<std::map<std::string, std::
         SendToSLS(logGroupMap);
     } else if ("file" == STRING_FLAG(metrics_report_method)) {
         std::string metricsContent;
-        SerializeGoDirectMetricsListToString(metricsList, metricsContent);
+        GetReadMetrics()->SerializeMetricsToString(metricsList, metricsContent);
         SendToLocalFile(metricsContent, "self-metrics-go");
     } else if ("custom" == STRING_FLAG(metrics_report_method)) {
+        std::string metricsContent;
+        GetReadMetrics()->SerializeMetricsToString(metricsList, metricsContent);
+        GetProfileSender()->SendMetricCountent(metricsContent);
     }
 }
 
@@ -240,24 +243,24 @@ void MetricExportor::SerializeGoDirectMetricsListToLogGroupMap(
     }
 }
 
-void MetricExportor::SerializeGoDirectMetricsListToString(std::vector<std::map<std::string, std::string>>& metricsList,
-                                                          std::string& metricsContent) {
-    std::ostringstream oss;
+// void MetricExportor::SerializeGoDirectMetricsListToString(std::vector<std::map<std::string, std::string>>& metricsList,
+//                                                           std::string& metricsContent) {
+//     std::ostringstream oss;
 
-    for (auto& metrics : metricsList) {
-        Json::Value metricsRecordValue;
-        auto now = GetCurrentLogtailTime();
-        metricsRecordValue["time"]
-            = AppConfig::GetInstance()->EnableLogTimeAutoAdjust() ? now.tv_sec + GetTimeDelta() : now.tv_sec;
-        for (const auto& metric : metrics) {
-            metricsRecordValue[metric.first] = metric.second;
-        }
-        Json::StreamWriterBuilder writer;
-        writer["indentation"] = "";
-        std::string jsonString = Json::writeString(writer, metricsRecordValue);
-        oss << jsonString << '\n';
-    }
-    metricsContent = oss.str();
-}
+//     for (auto& metrics : metricsList) {
+//         Json::Value metricsRecordValue;
+//         auto now = GetCurrentLogtailTime();
+//         metricsRecordValue["time"]
+//             = AppConfig::GetInstance()->EnableLogTimeAutoAdjust() ? now.tv_sec + GetTimeDelta() : now.tv_sec;
+//         for (const auto& metric : metrics) {
+//             metricsRecordValue[metric.first] = metric.second;
+//         }
+//         Json::StreamWriterBuilder writer;
+//         writer["indentation"] = "";
+//         std::string jsonString = Json::writeString(writer, metricsRecordValue);
+//         oss << jsonString << '\n';
+//     }
+//     metricsContent = oss.str();
+// }
 
 } // namespace logtail

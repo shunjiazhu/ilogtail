@@ -420,6 +420,26 @@ void ReadMetrics::ReadAsLogGroup(std::map<std::string, sls_logs::LogGroup*>& log
     }
 }
 
+void ReadMetrics::SerializeMetricsToString(std::vector<std::map<std::string, std::string>>& metricsList,
+                              std::string& metricsContent) const {
+    std::ostringstream oss;
+
+    for (auto& metrics : metricsList) {
+        Json::Value metricsRecordValue;
+        auto now = GetCurrentLogtailTime();
+        metricsRecordValue["time"]
+            = AppConfig::GetInstance()->EnableLogTimeAutoAdjust() ? now.tv_sec + GetTimeDelta() : now.tv_sec;
+        for (const auto& metric : metrics) {
+            metricsRecordValue[metric.first] = metric.second;
+        }
+        Json::StreamWriterBuilder writer;
+        writer["indentation"] = "";
+        std::string jsonString = Json::writeString(writer, metricsRecordValue);
+        oss << jsonString << '\n';
+    }
+    metricsContent = oss.str();
+};
+
 void ReadMetrics::ReadAsFileBuffer(std::string& metricsContent) const {
     ReadLock lock(mReadWriteLock);
 

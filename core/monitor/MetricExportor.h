@@ -45,8 +45,8 @@ private:
     void PushGoCppProvidedMetrics(std::vector<std::map<std::string, std::string>>& metricsList);
     void SerializeGoDirectMetricsListToLogGroupMap(std::vector<std::map<std::string, std::string>>& metricsList,
                                                    std::map<std::string, sls_logs::LogGroup*>& logGroupMap);
-    void SerializeGoDirectMetricsListToString(std::vector<std::map<std::string, std::string>>& metricsList,
-                                              std::string& metricsContent);
+    // void SerializeGoDirectMetricsListToString(std::vector<std::map<std::string, std::string>>& metricsList,
+    //                                           std::string& metricsContent);
 
     int32_t mSendInterval;
     int32_t mLastSendTime;

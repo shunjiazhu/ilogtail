@@ -170,6 +170,8 @@ public:
         return ptr;
     }
     void ReadAsLogGroup(std::map<std::string, sls_logs::LogGroup*>& logGroupMap) const;
+    virtual void SerializeMetricsToString(std::vector<std::map<std::string, std::string>>& metricsList,
+                                                      std::string& metricsContent) const;
     virtual void ReadAsFileBuffer(std::string& metricsContent) const;
     void UpdateMetrics();
 
