@@ -710,12 +710,22 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 				Protocol: converter.ProtocolInfluxdb,
 				Encoding: converter.EncodingCustom,
 			},
+			context:        mock.NewEmptyContext("p", "l", "c"),
 			interceptor:    mockIntercepter,
 			AsyncIntercept: false,
 			Timeout:        defaultTimeout,
 			Concurrency:    1,
-			queue:          make(chan interface{}, 10),
+			queue:          make(chan *groupWithTime, 10),
 		}
+
+		metricLabels := flusher.buildSelfMonitorMetricLabels()
+		metricsRecord := flusher.context.RegisterMetricRecord(metricLabels)
+		flusher.matchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_matched_events")
+		flusher.unmatchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_unmatched_events")
+		flusher.droppedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_dropped_events")
+		flusher.retryCount = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_retry_count")
+		flusher.flushFailure = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_flush_failure_count")
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(metricsRecord, "http_flusher_flush_latency_ns")
 
 		Convey("should discard all events", func() {
 			groupEvents := models.PipelineGroupEvents{
@@ -740,12 +750,22 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 				Protocol: converter.ProtocolInfluxdb,
 				Encoding: converter.EncodingCustom,
 			},
+			context:        mock.NewEmptyContext("p", "l", "c"),
 			interceptor:    mockIntercepter,
 			AsyncIntercept: true,
 			Timeout:        defaultTimeout,
 			Concurrency:    1,
-			queue:          make(chan interface{}, 10),
+			queue:          make(chan *groupWithTime, 10),
 		}
+
+		metricLabels := flusher.buildSelfMonitorMetricLabels()
+		metricsRecord := flusher.context.RegisterMetricRecord(metricLabels)
+		flusher.matchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_matched_events")
+		flusher.unmatchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_unmatched_events")
+		flusher.droppedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_dropped_events")
+		flusher.retryCount = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_retry_count")
+		flusher.flushFailure = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_flush_failure_count")
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(metricsRecord, "http_flusher_flush_latency_ns")
 
 		Convey("should discard all events", func() {
 			groupEvents := models.PipelineGroupEvents{
@@ -759,7 +779,7 @@ func TestHttpFlusherFlushWithInterceptor(t *testing.T) {
 			err := flusher.Export([]*models.PipelineGroupEvents{&groupEvents}, nil)
 			So(err, ShouldBeNil)
 			So(len(flusher.queue), ShouldEqual, 1)
-			err = flusher.convertAndFlush(<-flusher.queue)
+			err = flusher.convertAndFlush((<-flusher.queue).group)
 			So(err, ShouldBeNil)
 		})
 
@@ -780,9 +800,18 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 			AsyncIntercept:         true,
 			Timeout:                defaultTimeout,
 			Concurrency:            1,
-			queue:                  make(chan interface{}, 1),
+			queue:                  make(chan *groupWithTime, 1),
 			DropEventWhenQueueFull: true,
 		}
+
+		metricLabels := flusher.buildSelfMonitorMetricLabels()
+		metricsRecord := flusher.context.RegisterMetricRecord(metricLabels)
+		flusher.matchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_matched_events")
+		flusher.unmatchedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_unmatched_events")
+		flusher.droppedEvents = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_dropped_events")
+		flusher.retryCount = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_retry_count")
+		flusher.flushFailure = helper.NewCounterMetricAndRegister(metricsRecord, "http_flusher_flush_failure_count")
+		flusher.flushLatency = helper.NewAverageMetricAndRegister(metricsRecord, "http_flusher_flush_latency_ns")
 
 		Convey("should discard events when queue is full", func() {
 			groupEvents := models.PipelineGroupEvents{
@@ -798,8 +827,11 @@ func TestHttpFlusherDropEvents(t *testing.T) {
 			err = flusher.Export([]*models.PipelineGroupEvents{&groupEvents}, nil)
 			So(err, ShouldBeNil)
 			So(len(flusher.queue), ShouldEqual, 1)
-			err = flusher.convertAndFlush(<-flusher.queue)
+			err = flusher.convertAndFlush((<-flusher.queue).group)
 			So(err, ShouldBeNil)
+			dropEvents := flusher.droppedEvents.Export()
+			So(len(dropEvents), ShouldBeGreaterThan, 0)
+			So(dropEvents["http_flusher_dropped_events"], ShouldEqual, "1.0000")
 		})
 	})
 }

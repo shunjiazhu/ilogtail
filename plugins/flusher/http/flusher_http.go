@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dustin/go-broadcast"
 	"github.com/golang/snappy"
 
 	"github.com/alibaba/ilogtail/pkg/fmtstr"
@@ -68,6 +69,11 @@ type retryConfig struct {
 	MaxDelay      time.Duration // max delay time when retry, default is 30s
 }
 
+type groupWithTime struct {
+	group any
+	time  time.Time
+}
+
 type Client interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -92,6 +98,7 @@ type FlusherHTTP struct {
 	QueueCapacity          int                          // capacity of channel
 	DropEventWhenQueueFull bool                         // If true, pipeline events will be dropped when the queue is full
 	Compression            string                       // Compression type, support gzip and snappy at this moment.
+	JitterInSec            int                          // JitterInSec is the jitter time in seconds to prevent peek traffic , default is 0
 
 	varKeys []string
 
@@ -101,8 +108,9 @@ type FlusherHTTP struct {
 	client      Client
 	interceptor extensions.FlushInterceptor
 
-	queue   chan interface{}
-	counter sync.WaitGroup
+	queue       chan *groupWithTime
+	counter     sync.WaitGroup
+	broadcaster broadcast.Broadcaster
 
 	// self-monitor metrics
 	matchedEvents        pipeline.CounterMetric                        // The number of events that have been matched by the FlushInterceptor
@@ -187,9 +195,18 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 	if f.QueueCapacity <= 0 {
 		f.QueueCapacity = 1024
 	}
-	f.queue = make(chan interface{}, f.QueueCapacity)
+	f.queue = make(chan *groupWithTime, f.QueueCapacity)
+
+	if f.JitterInSec > 0 {
+		f.broadcaster = broadcast.NewBroadcaster(f.Concurrency)
+	}
+
 	for i := 0; i < f.Concurrency; i++ {
-		go f.runFlushTask()
+		subscribeChan := make(chan interface{}, 1)
+		if f.broadcaster != nil {
+			f.broadcaster.Register(subscribeChan)
+		}
+		go f.runFlushTask(subscribeChan)
 	}
 
 	f.buildVarKeys()
@@ -214,13 +231,15 @@ func (f *FlusherHTTP) Init(context pipeline.Context) error {
 }
 
 func (f *FlusherHTTP) Flush(projectName string, logstoreName string, configName string, logGroupList []*protocol.LogGroup) error {
+	current := time.Now()
 	for _, logGroup := range logGroupList {
-		f.addTask(logGroup)
+		f.addTask(&groupWithTime{group: logGroup, time: current})
 	}
 	return nil
 }
 
 func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx pipeline.PipelineContext) error {
+	current := time.Now()
 	for _, groupEvents := range groupEventsArray {
 		if !f.AsyncIntercept && f.interceptor != nil {
 			originCount := int64(len(groupEvents.Events))
@@ -232,7 +251,7 @@ func (f *FlusherHTTP) Export(groupEventsArray []*models.PipelineGroupEvents, ctx
 			}
 		}
 
-		f.addTask(groupEvents)
+		f.addTask(&groupWithTime{group: groupEvents, time: current})
 	}
 	return nil
 }
@@ -245,6 +264,12 @@ func (f *FlusherHTTP) IsReady(projectName string, logstoreName string, logstoreK
 }
 
 func (f *FlusherHTTP) Stop() error {
+	if f.broadcaster != nil {
+		err := f.broadcaster.Close() // close the broadcaster to flush all the data in the queue
+		if err != nil {
+			logger.Error(f.context.GetRuntimeContext(), "FLUSHER_STOP_ALARM", "http flusher close broadcaster fail, error", err)
+		}
+	}
 	f.counter.Wait()
 	close(f.queue)
 	return nil
@@ -375,17 +400,22 @@ func (f *FlusherHTTP) initRequestInterceptors(transport http.RoundTripper) (http
 	return transport, nil
 }
 
-func (f *FlusherHTTP) addTask(log interface{}) {
+func (f *FlusherHTTP) addTask(groupWithTs *groupWithTime) {
 	f.counter.Add(1)
+
+	// if queue is under high pressure, wake up all flushTask.
+	if f.JitterInSec > 0 && len(f.queue) >= cap(f.queue)/2 {
+		f.broadcaster.TrySubmit(nil)
+	}
 
 	if f.DropEventWhenQueueFull {
 		select {
-		case f.queue <- log:
+		case f.queue <- groupWithTs:
 		default:
-			f.handleDroppedEvent(log)
+			f.handleDroppedEvent(groupWithTs.group)
 		}
 	} else {
-		f.queue <- log
+		f.queue <- groupWithTs
 	}
 }
 
@@ -411,14 +441,28 @@ func (f *FlusherHTTP) countDownTask() {
 	f.counter.Done()
 }
 
-func (f *FlusherHTTP) runFlushTask() {
+// subscribeChan is used to wake up all flushTask.
+func (f *FlusherHTTP) runFlushTask(subscribeChan chan any) {
 	flushTaskFn, action := f.convertAndFlush, "convert"
 	if f.encoder != nil {
 		flushTaskFn, action = f.encodeAndFlush, "encode"
 	}
 
-	for data := range f.queue {
-		err := flushTaskFn(data)
+	jitterDuration := time.Duration(f.JitterInSec) * time.Second
+
+	for groupWithTs := range f.queue {
+		// sleep randomly if:
+		// 1. JitterInSec > 0
+		// 2. the event is not waiting for too long,
+		// 3. queue is under low pressure.
+		// 4. there are some idle workers.
+		waitTime := time.Since(groupWithTs.time)
+		if waitTime < jitterDuration && len(f.queue) < cap(f.queue)/2 && len(f.queue) < f.Concurrency {
+			maxSleepDuration := jitterDuration - waitTime
+			randomSleep(maxSleepDuration, subscribeChan)
+		}
+
+		err := flushTaskFn(groupWithTs.group)
 		if err != nil {
 			logger.Errorf(f.context.GetRuntimeContext(), "FLUSHER_FLUSH_ALARM",
 				"http flusher failed %s or flush data, data dropped, error: %s", action, err.Error())
@@ -725,6 +769,33 @@ func getInterceptedEventCount(origin int64, group *models.PipelineGroupEvents) i
 		return origin
 	}
 	return origin - int64(len(group.Events))
+}
+
+// randomSleep sleeps for a random duration between 0 and jitterInSec.
+// If jitterInSec is 0, it will skip sleep.
+// If shutdown is closed, it will stop sleep immediately.
+func randomSleep(maxJitter time.Duration, stopChan chan any) {
+	if maxJitter == 0 {
+		return
+	}
+
+	sleepTime := getJitter(maxJitter)
+	t := time.NewTimer(sleepTime)
+	select {
+	case <-t.C:
+		return
+	case <-stopChan:
+		t.Stop()
+		return
+	}
+}
+
+func getJitter(maxJitter time.Duration) time.Duration {
+	jitter, err := rand.Int(rand.Reader, big.NewInt(int64(maxJitter)))
+	if err != nil {
+		return 0
+	}
+	return time.Duration(jitter.Int64())
 }
 
 func init() {

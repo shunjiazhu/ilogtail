@@ -43,6 +43,7 @@
 | AsyncIntercept               | Boolean            | 否    | 异步过滤数据，默认为否                                                                                                                                                                                
 | DropEventWhenQueueFull       | Boolean            | 否    | 当队列满时是否丢弃数据，否则需要等待，默认为不丢弃                                                                                                                                                                  |
 | Compression                  | string             | 否    | 压缩策略，目前支持gzip和snappy，默认不开启                                                                                                                                                                 |
+| JitterInSec                  |  Int               | 否      | 引入随机 Jitter，打散流量, 默认不开启 |
 
 ## 样例
 

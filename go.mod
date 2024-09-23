@@ -16,6 +16,7 @@ require (
 	github.com/denisenkom/go-mssqldb v0.12.2
 	github.com/dlclark/regexp2 v1.7.0
 	github.com/docker/docker v20.10.23+incompatible
+	github.com/dustin/go-broadcast v0.0.0-00010101000000-000000000000
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/elastic/beats/v7 v7.7.1
 	github.com/elastic/go-elasticsearch/v8 v8.6.0
@@ -281,6 +282,7 @@ replace (
 	github.com/VictoriaMetrics/metrics => github.com/iLogtail/metrics v1.23.0-ilogtail
 	github.com/alibaba/ilogtail/pkg => ./pkg
 	github.com/aliyun/alibaba-cloud-sdk-go/services/sls_inner => ./external/github.com/aliyun/alibaba-cloud-sdk-go/services/sls_inner
+	github.com/dustin/go-broadcast => github.com/shunjiazhu/go-broadcast v0.0.0-20240521121616-1cf46d6a4244
 	github.com/elastic/beats/v7 => ./external/github.com/elastic/beats/v7
 	github.com/jeromer/syslogparser => ./external/github.com/jeromer/syslogparser
 	github.com/mindprince/gonvml => github.com/iLogtail/gonvml v1.0.0
