@@ -507,6 +507,7 @@ func makeTestLogGroupList() *protocol.LogGroupList {
 type TestOtlpLogServiceV2 struct {
 	ch    chan plogotlp.ExportRequest
 	pause time.Duration
+	plogotlp.UnimplementedGRPCServer
 }
 
 func (t *TestOtlpLogServiceV2) Export(ctx context.Context, request plogotlp.ExportRequest) (plogotlp.ExportResponse, error) {
@@ -520,6 +521,7 @@ func (t *TestOtlpLogServiceV2) Export(ctx context.Context, request plogotlp.Expo
 type TestOtlpMetricServiceV2 struct {
 	ch    chan pmetricotlp.ExportRequest
 	pause time.Duration
+	pmetricotlp.UnimplementedGRPCServer
 }
 
 func (t *TestOtlpMetricServiceV2) Export(ctx context.Context, request pmetricotlp.ExportRequest) (pmetricotlp.ExportResponse, error) {
@@ -561,6 +563,7 @@ func newTestGrpcMetricServiceV2(t *testing.T, address string, pause time.Duratio
 type TestOtlpTraceServiceV2 struct {
 	ch    chan ptraceotlp.ExportRequest
 	pause time.Duration
+	ptraceotlp.UnimplementedGRPCServer
 }
 
 func (t *TestOtlpTraceServiceV2) Export(ctx context.Context, request ptraceotlp.ExportRequest) (ptraceotlp.ExportResponse, error) {
