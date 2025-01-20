@@ -128,3 +128,7 @@ func (p *Encoder) EncodeBatchV2(groupEventsSlice []*models.PipelineGroupEvents, 
 
 	return res, varValues, nil
 }
+
+// Recycle implements Extension.BufferRecycler
+// But Prometheus Encoder doesn't actually recycle the buffer since its Encode implementation cannot reuse the buffer now.
+func (p *Encoder) Recycle(buf []byte) {}

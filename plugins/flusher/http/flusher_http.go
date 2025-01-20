@@ -479,6 +479,14 @@ func (f *FlusherHTTP) flushWithRetry(data []byte, varValues map[string]string) e
 		err = e
 		<-time.After(f.getNextRetryDelay(i))
 	}
+
+	if f.encoder != nil {
+		if recycler, ok := f.encoder.(extensions.BufferRecycler); ok {
+			recycler.Recycle(data)
+			return err
+		}
+	}
+
 	converter.PutPooledByteBuf(&data)
 	return err
 }

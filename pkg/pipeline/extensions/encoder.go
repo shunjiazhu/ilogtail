@@ -47,6 +47,11 @@ type EncoderV2 interface {
 	EncodeBatchV2([]*models.PipelineGroupEvents, []string) ([][]byte, []map[string]string, error)
 }
 
+// Recycler recyles the buffer
+type BufferRecycler interface {
+	Recycle([]byte)
+}
+
 type EncoderExtension interface {
 	Encoder
 	pipeline.Extension
