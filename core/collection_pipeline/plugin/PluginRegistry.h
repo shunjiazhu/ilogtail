@@ -59,6 +59,7 @@ public:
     void RegisterInputCreator(PluginCreator* creator, bool isSingleton = false);
     void RegisterProcessorCreator(PluginCreator* creator);
     void RegisterFlusherCreator(PluginCreator* creator, bool isSingleton = false);
+
 private:
     enum PluginCat { INPUT_PLUGIN, PROCESSOR_PLUGIN, FLUSHER_PLUGIN };
 
