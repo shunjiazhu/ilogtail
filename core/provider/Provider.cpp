@@ -39,6 +39,7 @@ ProfileSender* GetProfileSender() {
 }
 
 
-void RegisterExternalPlugins() {}
+void RegisterExternalPlugins() {
+}
 
 } // namespace logtail
