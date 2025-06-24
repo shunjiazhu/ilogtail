@@ -32,7 +32,6 @@ std::vector<ConfigProvider*> GetRemoteConfigProviders();
 // It currently initializes the LegacyCommonConfigProvider and CommonConfigProvider.
 void InitRemoteConfigProviders();
 
-
 // GetProfileSender returns the ProfileSender instance.
 // Self-monitor metrics are not sent via ProfileSender anymore.
 ProfileSender* GetProfileSender();

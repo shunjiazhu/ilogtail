@@ -84,9 +84,7 @@ void PluginRegistry::LoadPlugins() {
     LoadStaticPlugins();
     auto& plugins = AppConfig::GetInstance()->GetDynamicPlugins();
     LoadDynamicPlugins(plugins);
-
-    // external plugin registration
-    RegisterExternalPlugins();
+    RegisterExternalPlugins(); // external plugin registration
 }
 
 void PluginRegistry::UnloadPlugins() {

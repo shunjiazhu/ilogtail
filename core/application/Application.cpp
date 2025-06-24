@@ -240,7 +240,6 @@ void Application::Start() { // GCOVR_EXCL_START
 
     // plugin registration
     PluginRegistry::GetInstance()->LoadPlugins();
-
     InputFeedbackInterfaceRegistry::GetInstance()->LoadFeedbackInterfaces();
 
 #if defined(__ENTERPRISE__) && defined(__linux__) && !defined(__ANDROID__)
