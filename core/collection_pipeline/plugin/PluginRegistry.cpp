@@ -61,6 +61,7 @@
 #include "plugin/processor/inner/ProcessorSplitLogStringNative.h"
 #include "plugin/processor/inner/ProcessorSplitMultilineLogStringNative.h"
 #include "plugin/processor/inner/ProcessorTagNative.h"
+#include "provider/Provider.h"
 #if defined(__linux__) && !defined(__ANDROID__) && !defined(__EXCLUDE_SPL__)
 #include "plugin/processor/ProcessorSPL.h"
 #endif
@@ -82,6 +83,9 @@ void PluginRegistry::LoadPlugins() {
     LoadStaticPlugins();
     auto& plugins = AppConfig::GetInstance()->GetDynamicPlugins();
     LoadDynamicPlugins(plugins);
+
+    // external plugin registration
+    RegisterExternalPlugins();
 }
 
 void PluginRegistry::UnloadPlugins() {
