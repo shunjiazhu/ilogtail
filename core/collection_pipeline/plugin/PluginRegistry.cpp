@@ -52,7 +52,6 @@
 #include "plugin/processor/inner/ProcessorSplitLogStringNative.h"
 #include "plugin/processor/inner/ProcessorSplitMultilineLogStringNative.h"
 #include "plugin/processor/inner/ProcessorTagNative.h"
-#include "provider/Provider.h"
 #if defined(__linux__) && !defined(__ANDROID__)
 #include "plugin/input/InputHostMeta.h"
 #include "plugin/input/InputHostMonitor.h"
@@ -69,6 +68,7 @@
 #ifdef __ENTERPRISE__
 #include "plugin/flusher/sls/EnterpriseFlusherSLSMonitor.h"
 #endif
+#include "provider/Provider.h"
 
 DEFINE_FLAG_BOOL(enable_processor_spl, "", true);
 DEFINE_FLAG_BOOL(enable_ebpf_network_observer, "", false);
