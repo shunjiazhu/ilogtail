@@ -41,6 +41,12 @@ const (
 	BodyKey    = ContentKey
 )
 
+const (
+	intValueBytes    = 4
+	longValueBytes   = 8
+	doubleValueBytes = 8
+)
+
 var (
 	NilStringValues    = &keyValuesNil[string]{}
 	NilTypedValues     = &keyValuesNil[*TypedValue]{}
