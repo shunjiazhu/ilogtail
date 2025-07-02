@@ -98,3 +98,15 @@ func BenchmarkMetricGetSize(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkNilKeyValueGetIterator(b *testing.B) {
+	kvs := NilStringValues
+
+	b.Run("NilKeyValueGetIterator", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = kvs.Iterator()
+		}
+	})
+}
