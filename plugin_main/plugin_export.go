@@ -331,6 +331,7 @@ func GetGoMetrics(metricType string) *C.PluginMetrics {
 			j++
 		}
 		C.setArrayPluginMetric(cPluginMetrics.metrics, cMetric, C.int(i))
+		runtime.KeepAlive(cMetric)
 	}
 	return cPluginMetrics
 }
