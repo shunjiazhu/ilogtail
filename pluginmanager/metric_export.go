@@ -38,7 +38,9 @@ type globalMetricRecords struct {
 }
 
 func RegisterGlobalMetricRecord(labels ...selfmonitor.LabelPair) *selfmonitor.MetricsRecord {
-	record := &selfmonitor.MetricsRecord{Labels: labels}
+	globalLabels := []selfmonitor.LabelPair{{Key: selfmonitor.MetricLabelKeyMetricCategory, Value: "runner"}}
+	globalLabels = append(globalLabels, labels...)
+	record := &selfmonitor.MetricsRecord{Labels: globalLabels}
 	globalMetricRecord.Lock()
 	defer globalMetricRecord.Unlock()
 	globalMetricRecord.records[record] = struct{}{}
