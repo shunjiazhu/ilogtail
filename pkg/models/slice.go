@@ -491,9 +491,7 @@ func (k *keyValuesSliceImpl[TValue]) IsSorted() bool {
 
 func (k *keyValuesSliceImpl[TValue]) SortTo(buf []KeyValue[TValue]) []KeyValue[TValue] {
 	buf = append(buf, k.kvs...)
-	sort.Slice(buf, func(i, j int) bool {
-		return buf[i].Key < buf[j].Key
-	})
+	sortKeyValues(buf)
 	return buf
 }
 
