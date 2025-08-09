@@ -89,11 +89,11 @@ type KeyValues[TValue string | float64 | *TypedValue | any] interface {
 	Merge(other KeyValues[TValue])
 
 	// Iterator returns a map of all key-value pairs in the inner collector.
-	// Recommend using Range instead unless you need to return a map.
+	// Recommend using Range instead unless you have to get a hashmap.
 	Iterator() map[string]TValue
 
 	// ToArray returns a slice of all key-value pairs in the inner collector.
-	// Recommend using Range instead unless you need to return a slice.
+	// Recommend using Range instead unless you have to get a slice.
 	ToArray() []KeyValue[TValue]
 
 	// LoadOrStore returns the value for the key if it exists,
@@ -120,17 +120,20 @@ type KeyValues[TValue string | float64 | *TypedValue | any] interface {
 	IsSorted() bool
 
 	// SortTo sorts the map by key and returns a slice of all key-value pairs in the map.
+	// It will not modify the original inner collector.
 	SortTo(buf []KeyValue[TValue]) []KeyValue[TValue]
 
 	// Len returns the number of key-value pairs in the map.
 	Len() int
 
-	// Size returns the estimated size of the keyValuesMapImpl.
+	// Size returns the estimated size of the keyValuesMap implementation.
+	// Note: This size is for statistical purposes and does not represent the actual memory usage.
 	Size() int
 
 	// IsNil returns true if the map is nil or empty.
 	IsNil() bool
 
+	// Clone returns a deep copy of the kvs.
 	Clone() KeyValues[TValue]
 }
 
