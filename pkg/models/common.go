@@ -133,6 +133,9 @@ type KeyValues[TValue string | float64 | *TypedValue | any] interface {
 	// IsNil returns true if the map is nil or empty.
 	IsNil() bool
 
+	// Reset resets the inner collector for reusage.
+	Reset()
+
 	// Clone returns a deep copy of the kvs.
 	Clone() KeyValues[TValue]
 }
@@ -316,6 +319,13 @@ func (kv *keyValuesMapImpl[TValue]) SortTo(buf []KeyValue[TValue]) []KeyValue[TV
 	return buf
 }
 
+func (kv *keyValuesMapImpl[TValue]) Reset() {
+	if kv.IsNil() {
+		return
+	}
+	kv.keyValues = make(map[string]TValue)
+}
+
 func (kv *keyValuesMapImpl[TValue]) Clone() KeyValues[TValue] {
 	if values, ok := kv.values(); ok {
 		newValues := make(map[string]TValue, len(values))
@@ -389,6 +399,9 @@ func (kv *keyValuesNil[TValue]) RangeMut(f func(key string, value TValue) MutRes
 func (kv *keyValuesNil[TValue]) LoadOrStore(key string, value TValue) (TValue, bool) {
 	var null TValue
 	return null, false
+}
+
+func (kv *keyValuesNil[TValue]) Reset() {
 }
 
 func (kv *keyValuesNil[TValue]) Clone() KeyValues[TValue] {

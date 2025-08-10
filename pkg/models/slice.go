@@ -20,10 +20,18 @@ import (
 )
 
 var (
-	_ KeyValues[string]  = (*sortedKeyValuesSliceImpl[string])(nil)
-	_ Tags               = (*sortedStrKeyValuesSliceImpl)(nil)
-	_ KeyValues[float64] = (*keyValuesSliceImpl[float64])(nil)
+	_                   KeyValues[string]  = (*sortedKeyValuesSliceImpl[string])(nil)
+	_                   Tags               = (*sortedStrKeyValuesSliceImpl)(nil)
+	_                   KeyValues[float64] = (*keyValuesSliceImpl[float64])(nil)
+	recycleCapThreshold                    = 1024 * 1024
 )
+
+// SetKeyValuesSliceRecycleCapThreshold sets the threshold for slice recycle.
+// The threshold is used to determine whether the slice should be recycled.
+// Note this func is not thread-safe and should be called in initialization.
+func SetKeyValuesSliceRecycleCapThreshold(threshold int) {
+	recycleCapThreshold = threshold
+}
 
 // sortedStrKeyValuesSliceImpl implements Tags.
 // It is actually a wrapper of keyValuesSliceImpl[string] with extra Size() and Clone() method.
@@ -151,16 +159,16 @@ func (s *sortedKeyValuesSliceImpl[TValue]) Contains(key string) bool {
 	return index < len(s.kvs) && s.kvs[index].Key == key
 }
 
-func (kv *sortedKeyValuesSliceImpl[TValue]) LoadOrStore(key string, value TValue) (TValue, bool) {
-	index := sort.Search(len(kv.kvs), func(i int) bool {
-		return kv.kvs[i].Key >= key
+func (s *sortedKeyValuesSliceImpl[TValue]) LoadOrStore(key string, value TValue) (TValue, bool) {
+	index := sort.Search(len(s.kvs), func(i int) bool {
+		return s.kvs[i].Key >= key
 	})
-	if index < len(kv.kvs) && kv.kvs[index].Key == key {
-		return kv.kvs[index].Value, true
+	if index < len(s.kvs) && s.kvs[index].Key == key {
+		return s.kvs[index].Value, true
 	}
-	kv.kvs = append(kv.kvs, KeyValue[TValue]{})
-	copy(kv.kvs[index+1:], kv.kvs[index:])
-	kv.kvs[index] = KeyValue[TValue]{Key: key, Value: value}
+	s.kvs = append(s.kvs, KeyValue[TValue]{})
+	copy(s.kvs[index+1:], s.kvs[index:])
+	s.kvs[index] = KeyValue[TValue]{Key: key, Value: value}
 	return value, false
 }
 
@@ -201,15 +209,16 @@ func (s *sortedKeyValuesSliceImpl[TValue]) mergeSorted(otherSorted []KeyValue[TV
 	duplicates := 0
 
 	for i >= 0 && j >= 0 {
-		if s.kvs[i].Key > otherSorted[j].Key {
+		switch {
+		case s.kvs[i].Key > otherSorted[j].Key:
 			s.kvs[k] = s.kvs[i]
 			i--
 			k--
-		} else if s.kvs[i].Key < otherSorted[j].Key {
+		case s.kvs[i].Key < otherSorted[j].Key:
 			s.kvs[k] = otherSorted[j]
 			j--
 			k--
-		} else {
+		default:
 			// keys are equal, keep the one from otherSorted
 			s.kvs[k] = otherSorted[j]
 			i-- // skip the one from s.kvs
@@ -323,6 +332,17 @@ func (s *sortedKeyValuesSliceImpl[TValue]) Len() int {
 
 func (s *sortedKeyValuesSliceImpl[TValue]) IsNil() bool {
 	return s == nil || len(s.kvs) == 0
+}
+
+func (s *sortedKeyValuesSliceImpl[TValue]) Reset() {
+	if s.IsNil() {
+		return
+	}
+	if cap(s.kvs) > recycleCapThreshold {
+		s.kvs = make([]KeyValue[TValue], 0)
+		return
+	}
+	s.kvs = s.kvs[:0]
 }
 
 func (s *sortedKeyValuesSliceImpl[TValue]) Clone() KeyValues[TValue] {
@@ -511,6 +531,18 @@ func (k *keyValuesSliceImpl[TValue]) IsNil() bool {
 	return k == nil || len(k.kvs) == 0
 }
 
+func (k *keyValuesSliceImpl[TValue]) Reset() {
+	if k.IsNil() {
+		return
+	}
+
+	if cap(k.kvs) > recycleCapThreshold {
+		k.kvs = make([]KeyValue[TValue], 0)
+		return
+	}
+	k.kvs = k.kvs[:0]
+}
+
 func (k *keyValuesSliceImpl[TValue]) Clone() KeyValues[TValue] {
 	if k == nil {
 		return nil
@@ -539,5 +571,6 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 }
 
 func sortKeyValues[TValue string | float64 | *TypedValue | any](kvs []KeyValue[TValue]) {
+	/* #nosec G103 */
 	sort.Sort((*KeyValueSlice[TValue])(noescape(unsafe.Pointer(&kvs))))
 }
