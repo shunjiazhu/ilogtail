@@ -398,8 +398,10 @@ func (k *keyValuesSliceImpl[TValue]) deDuplicate() {
 }
 
 func (k *keyValuesSliceImpl[TValue]) Add(key string, value TValue) {
-	for i := range k.kvs {
-		if k.kvs[i].Key == key {
+	// reverse order
+	for i := len(k.kvs) - 1; i >= 0; i-- {
+		kv := k.kvs[i]
+		if kv.Key == key {
 			k.kvs[i].Value = value
 			return
 		}

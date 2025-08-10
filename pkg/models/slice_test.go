@@ -672,6 +672,49 @@ func BenchmarkTags(b *testing.B) {
 		})
 	})
 
+	kvsToAdd := make([]KeyValue[string], 0, tagCount)
+	for i := 0; i < tagCount; i++ {
+		kvsToAdd = append(kvsToAdd, KeyValue[string]{Key: fmt.Sprintf("tag_%d", i), Value: fmt.Sprintf("value_%d", i)})
+	}
+
+	b.Run(fmt.Sprintf("AddAndReset(size:%d)", tagCount), func(b *testing.B) {
+		b.Run("Tags", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			tags := NewTags()
+			for i := 0; i < b.N; i++ {
+				for _, kv := range kvsToAdd {
+					tags.Add(kv.Key, kv.Value)
+				}
+				tags.Reset()
+			}
+		})
+
+		b.Run("SortedTagSlice", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			tags := NewTagSlice()
+			for i := 0; i < b.N; i++ {
+				for _, kv := range kvsToAdd {
+					tags.Add(kv.Key, kv.Value)
+				}
+				tags.Reset()
+			}
+		})
+
+		b.Run("UnSortedTagSlice", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			tags := NewKeyValuesSlice[string]()
+			for i := 0; i < b.N; i++ {
+				for _, kv := range kvsToAdd {
+					tags.Add(kv.Key, kv.Value)
+				}
+				tags.Reset()
+			}
+		})
+	})
+
 	b.Run(fmt.Sprintf("Size(size:%d)", tagCount), func(b *testing.B) {
 		b.Run("Tags", func(b *testing.B) {
 			tags := NewTags()
