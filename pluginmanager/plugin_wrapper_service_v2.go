@@ -37,6 +37,9 @@ func (wrapper *ServiceWrapperV2) StartService(pipelineContext pipeline.PipelineC
 	return wrapper.Input.StartService(wrapper.pipelineCtxWrapper)
 }
 
+// PipelineContextWrapper is a wrapper of pipeline.PipelineContext
+// When call Collector(), it replaces the original pipeline.PipelineCollector with PipelineCollectorWrapper
+// for counting the traffic of the plugin
 type PipelineContextWrapper struct {
 	PipelineCollectorWrapper
 }
@@ -45,6 +48,7 @@ func (wrapper *PipelineContextWrapper) Collector() pipeline.PipelineCollector {
 	return wrapper.PipelineCollectorWrapper
 }
 
+// PipelineCollectorWrapper is a wrapper of pipeline.PipelineCollector with extra telemetry metrics.
 type PipelineCollectorWrapper struct {
 	inner pipeline.PipelineCollector
 
