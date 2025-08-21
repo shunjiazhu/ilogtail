@@ -69,7 +69,7 @@ func (collectorWrapper PipelineCollectorWrapper) Collect(groupInfo *models.Group
 	for _, event := range eventList {
 		size += event.GetSize()
 	}
-	collectorWrapper.outSizeBytes.Add(int64(size))
+	collectorWrapper.outSizeBytes.Add(size)
 	collectorWrapper.inner.Collect(groupInfo, eventList...)
 }
 
