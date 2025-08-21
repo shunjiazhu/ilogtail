@@ -118,7 +118,7 @@ func newPipelineContextWrapper(pipelineContext pipeline.PipelineContext, outEven
 	w := &PipelineContextWrapper{}
 
 	var innerCollector pipeline.PipelineCollector
-	if pipelineContext == nil {
+	if pipelineContext != nil {
 		innerCollector = pipelineContext.Collector()
 	}
 
