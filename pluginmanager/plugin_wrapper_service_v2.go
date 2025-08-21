@@ -122,6 +122,11 @@ func newPipelineContextWrapper(pipelineContext pipeline.PipelineContext, outEven
 		innerCollector = pipelineContext.Collector()
 	}
 
-	w.PipelineCollectorWrapper = PipelineCollectorWrapper{innerCollector, outEventsTotal, outEventGroupsTotal, outSizeBytes}
+	w.PipelineCollectorWrapper = PipelineCollectorWrapper{
+		inner:               innerCollector,
+		outEventsTotal:      outEventsTotal,
+		outEventGroupsTotal: outEventGroupsTotal,
+		outSizeBytes:        outSizeBytes,
+	}
 	return w
 }
