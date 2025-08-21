@@ -199,8 +199,6 @@ func (s *sortedKeyValuesSliceImpl[TValue]) mergeSorted(otherSorted []KeyValue[TV
 
 	originLen := len(s.kvs)
 	totalLen := originLen + len(otherSorted)
-
-	// directly use s.kvs to store the merged result to avoid allocation and memmove in most cases
 	s.kvs = append(s.kvs, otherSorted...)
 
 	i := originLen - 1
@@ -208,6 +206,16 @@ func (s *sortedKeyValuesSliceImpl[TValue]) mergeSorted(otherSorted []KeyValue[TV
 	k := totalLen - 1
 	duplicates := 0
 
+	// directly use s.kvs to store the merged result to avoid allocation and memmove in most cases
+	// +-----------------+--------------------+
+	// |     origin      |  other to merge    |
+	// +-----------------+--------------------+
+	// |                 |                    |
+	// 0-----------------i--------------------k
+	//
+	// +--------------------+
+	// |    raw  other      |
+	// 0--------------------+
 	for i >= 0 && j >= 0 {
 		switch {
 		case s.kvs[i].Key > otherSorted[j].Key:
@@ -219,12 +227,12 @@ func (s *sortedKeyValuesSliceImpl[TValue]) mergeSorted(otherSorted []KeyValue[TV
 			j--
 			k--
 		default:
-			// keys are equal, keep the one from otherSorted
+			// keys are equal, keep the one from otherSorted, which has higher priority.
 			s.kvs[k] = otherSorted[j]
-			i-- // skip the one from s.kvs
+			i-- // skip the originone from s.kvs
 			j--
 			k--
-			duplicates++
+			duplicates++ // mark there is a duplicate key
 		}
 	}
 
@@ -239,6 +247,9 @@ func (s *sortedKeyValuesSliceImpl[TValue]) mergeSorted(otherSorted []KeyValue[TV
 		j--
 		k--
 	}
+
+	// The first $duplicates kvs are the useless ones from s.kvs and may be polluted.
+	// we need to remove them, just update the slice header to skip them.
 	effectiveLen := totalLen - duplicates
 	s.kvs = s.kvs[totalLen-effectiveLen : totalLen]
 }
