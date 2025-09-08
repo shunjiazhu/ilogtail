@@ -297,7 +297,7 @@ func (kv *keyValuesMapImpl[TValue]) Size() int {
 }
 
 func (kv *keyValuesMapImpl[TValue]) IsNil() bool {
-	return false
+	return kv == nil || len(kv.keyValues) == 0
 }
 
 func (kv *keyValuesMapImpl[TValue]) SortTo(buf []KeyValue[TValue]) []KeyValue[TValue] {

@@ -250,8 +250,7 @@ func (s *sortedKeyValuesSliceImpl[TValue]) mergeSorted(otherSorted []KeyValue[TV
 
 	// The first $duplicates kvs are the useless ones from s.kvs and may be polluted.
 	// we need to remove them, just update the slice header to skip them.
-	effectiveLen := totalLen - duplicates
-	s.kvs = s.kvs[totalLen-effectiveLen : totalLen]
+	s.kvs = s.kvs[duplicates:totalLen]
 }
 
 func (s *sortedKeyValuesSliceImpl[TValue]) Iterator() map[string]TValue {
@@ -509,7 +508,11 @@ func (k *keyValuesSliceImpl[TValue]) RangeMut(f func(key string, value TValue) M
 		result := f(kv.Key, kv.Value)
 
 		if result.Replace {
-			k.kvs[i] = result.NewKeyValue
+			if result.NewKeyValue.Key == kv.Key {
+				k.kvs[i].Value = result.NewKeyValue.Value
+			} else {
+				k.kvs[i] = result.NewKeyValue
+			}
 		}
 
 		if !result.Continue {
