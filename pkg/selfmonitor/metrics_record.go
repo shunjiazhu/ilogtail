@@ -62,6 +62,7 @@ func (m *MetricsRecord) ExportMetricRecords() []map[string]string {
 
 	curCounters := map[string]string{}
 	currGauges := map[string]string{}
+	commonLabels := m.getConstLabels()
 	currLabels := m.getConstLabels()
 	currSeriesCount := 0
 
@@ -74,7 +75,7 @@ func (m *MetricsRecord) ExportMetricRecords() []map[string]string {
 				continue
 			}
 
-			if currSeriesCount > 0 && hasDifferentLabels(currLabels, measurement) {
+			if currSeriesCount > 0 && hasDifferentLabels(currLabels, commonLabels, measurement) {
 				res = append(res, buildRecord(currLabels, currGauges, curCounters))
 				currLabels = m.getConstLabels()
 				curCounters = map[string]string{}
@@ -123,24 +124,39 @@ func (m *MetricsRecord) getConstLabels() map[string]string {
 	return labels
 }
 
-// hasDifferentTags checks if the singleMetric has different tags currLabels target.
-func hasDifferentLabels(currLabels map[string]string, nextMeasurement map[string]string) bool {
-	if len(nextMeasurement) == 0 || len(currLabels) == 0 {
-		return false
-	}
+// hasDifferentLabels checks if the next measurement has different labels compared to current labels.
+// 1. currLabels: Labels from the current metric instance
+// 2. commonLabels: Shared labels that should be present in all metrics
+// 3. nextMeasurement: The next measurement to check
+func hasDifferentLabels(currLabels map[string]string, commonLabels map[string]string, nextMeasurement map[string]string) bool {
+	// Check if next measurement's dynamic labels differ from current labels
 
+	newLabelCount := 0
 	for key, value := range nextMeasurement {
 		if !isLabel(key, nextMeasurement) {
 			continue
 		}
 
-		// label is not equal
-		if currLabels[key] != value {
+		// If label exists but value differs, labels are different
+		currValue, exists := currLabels[key]
+		if !exists || currValue != value {
 			return true
+		}
+		newLabelCount++
+	}
+
+	// Check if common labels differ from current labels.
+	// This only happens if the current metrics override the common labels.
+	for key, value := range commonLabels {
+		if value != currLabels[key] {
+			return true
+		}
+		if _, ok := nextMeasurement[key]; !ok {
+			newLabelCount++
 		}
 	}
 
-	return false
+	return newLabelCount != len(currLabels)
 }
 
 // getMetriName returns the name of the metric.

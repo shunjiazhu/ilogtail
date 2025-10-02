@@ -155,3 +155,109 @@ func TestExportMetricRecordsWithDayamicLabels(t *testing.T) {
 	}
 	assert.Equal(t, matched, len(results))
 }
+
+func TestExportMetricRecordsWithNextHasEmptyLabels(t *testing.T) {
+	metricsRecord := &MetricsRecord{
+		Labels: []LabelPair{
+			{
+				Key:   "PluginType",
+				Value: "flusher_http",
+			},
+			{
+				Key:   "PluginId",
+				Value: "13",
+			},
+		},
+	}
+	constMetricLabels := map[string]string{"RemoteURL": "http://localhost:8081"}
+	metric1 := NewCounterMetricVectorAndRegister(metricsRecord, "http_flusher_matched_events", constMetricLabels, []string{"test0"})
+	metric1.WithLabels(LabelPair{"test0", "value0"}).Add(1)
+
+	metric2 := NewCounterMetricVectorAndRegister(metricsRecord, "http_flusher_unmatched_events", constMetricLabels, nil).WithLabels()
+	metric2.Add(2)
+
+	results := metricsRecord.ExportMetricRecords()
+	assert.Len(t, results, 2)
+
+	expectedResults := []struct {
+		counter string
+		gauge   string
+		labels  string
+	}{
+		{
+			counter: "{\"http_flusher_matched_events\":\"1.0000\"}",
+			gauge:   "{}",
+			labels:  "{\"PluginId\":\"13\",\"PluginType\":\"flusher_http\",\"RemoteURL\":\"http://localhost:8081\",\"test0\":\"value0\"}",
+		},
+		{
+			counter: "{\"http_flusher_unmatched_events\":\"2.0000\"}",
+			gauge:   "{}",
+			labels:  "{\"PluginId\":\"13\",\"PluginType\":\"flusher_http\",\"RemoteURL\":\"http://localhost:8081\"}",
+		},
+	}
+
+	matched := 0
+	for _, result := range results {
+		for _, expect := range expectedResults {
+			if result[MetricLabelPrefix] == expect.labels {
+				matched++
+				assert.Equal(t, expect.counter, result["counters"])
+				assert.Equal(t, expect.gauge, result["gauges"])
+			}
+		}
+	}
+	assert.Equal(t, matched, len(results))
+}
+
+func TestExportMetricRecordsWithPrevHasEmptyLabels(t *testing.T) {
+	metricsRecord := &MetricsRecord{
+		Labels: []LabelPair{
+			{
+				Key:   "PluginType",
+				Value: "flusher_http",
+			},
+			{
+				Key:   "PluginId",
+				Value: "13",
+			},
+		},
+	}
+	constMetricLabels := map[string]string{"RemoteURL": "http://localhost:8081"}
+	metric2 := NewCounterMetricVectorAndRegister(metricsRecord, "http_flusher_unmatched_events", constMetricLabels, nil).WithLabels()
+	metric2.Add(2)
+
+	metric1 := NewCounterMetricVectorAndRegister(metricsRecord, "http_flusher_matched_events", constMetricLabels, []string{"test0"})
+	metric1.WithLabels(LabelPair{"test0", "value0"}).Add(1)
+
+	results := metricsRecord.ExportMetricRecords()
+	assert.Len(t, results, 2)
+
+	expectedResults := []struct {
+		counter string
+		gauge   string
+		labels  string
+	}{
+		{
+			counter: "{\"http_flusher_unmatched_events\":\"2.0000\"}",
+			gauge:   "{}",
+			labels:  "{\"PluginId\":\"13\",\"PluginType\":\"flusher_http\",\"RemoteURL\":\"http://localhost:8081\"}",
+		},
+		{
+			counter: "{\"http_flusher_matched_events\":\"1.0000\"}",
+			gauge:   "{}",
+			labels:  "{\"PluginId\":\"13\",\"PluginType\":\"flusher_http\",\"RemoteURL\":\"http://localhost:8081\",\"test0\":\"value0\"}",
+		},
+	}
+
+	matched := 0
+	for _, result := range results {
+		for _, expect := range expectedResults {
+			if result[MetricLabelPrefix] == expect.labels {
+				matched++
+				assert.Equal(t, expect.counter, result["counters"])
+				assert.Equal(t, expect.gauge, result["gauges"])
+			}
+		}
+	}
+	assert.Equal(t, matched, len(results))
+}
